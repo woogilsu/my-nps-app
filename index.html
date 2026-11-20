@@ -55,20 +55,56 @@
 
     <!-- ==================== 탭 1: 전사/담당/D5 비교 ==================== -->
     <section id="sec-org" class="space-y-6">
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="font-bold text-slate-800">전사 / BS / 담당별 / D5 월별·누적 데이터 붙여넣기 (덮어쓰기)</h2>
-          <span class="text-xs text-slate-500">형식: 구분 | 26년누적(NPS/상담예약/매장경험/매니저상담) | 1월(...) ~ 12월(...)</span>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 no-print">
+        <!-- 1-1. 전사/담당별 입력 (53칸) -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="flex justify-between items-center mb-1.5">
+            <h2 class="font-bold text-slate-800 text-sm">① 전사 / BS / 담당별 실적 (53칸)</h2>
+            <span class="text-[11px] text-slate-400">구분 | 26년누적~12월</span>
+          </div>
+          <textarea id="input-org" rows="3" class="w-full p-2 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="전사, BS, 강남, 경원 등 담당별 실적 행을 붙여넣으세요."></textarea>
+          <div class="mt-2 flex justify-end gap-2">
+            <button onclick="parseOrgData(false)" class="px-3 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 분석</button>
+            <button onclick="parseOrgData(true)" class="px-3 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">덮어쓰기 저장</button>
+          </div>
         </div>
-        <textarea id="input-org" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 구분(전사, BS, 강남, LG전자 플래그십 D5 등) 행을 복사해 그대로 붙여넣으세요."></textarea>
-        <div class="mt-2 flex justify-end gap-2">
-          <button onclick="parseOrgData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
-          <button onclick="parseOrgData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">덮어쓰기 저장 후 분석</button>
+
+        <!-- 1-2. 지점별 실적 입력 (54칸) -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-rose-200">
+          <div class="flex justify-between items-center mb-1.5">
+            <h2 class="font-bold lg-red-text text-sm">② 지점별 실적 및 D5 순위 (54칸)</h2>
+            <span class="text-[11px] text-slate-400">담당 | 지점 | 26년누적~12월</span>
+          </div>
+          <textarea id="input-branch" rows="3" class="w-full p-2 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="담당/지점별 54칸 데이터를 붙여넣으면 D5 실적과 전체·담당 내 순위가 자동 계산됩니다."></textarea>
+          <div class="mt-2 flex justify-between items-center">
+            <span id="branch-count-info" class="text-[11px] text-slate-500">로드된 지점: 0개</span>
+            <div class="flex gap-2">
+              <button onclick="parseBranchData(false)" class="px-3 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 분석</button>
+              <button onclick="parseBranchData(true)" class="px-3 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">덮어쓰기 저장</button>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- 핵심 비교 KPI 카드 -->
       <div id="org-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
 
+      <!-- D5 지점 순위 요약 배너 (54칸 데이터 있을 때 표시) -->
+      <div id="d5-rank-section" class="hidden space-y-4">
+        <div id="d5-rank-kpis" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <h3 class="font-bold text-slate-800 mb-3">전체 기준 D5 상위 지점 (<span class="org-metric-label">NPS</span> 26년 누적)</h3>
+            <table class="w-full text-xs text-right border-collapse" id="table-d5-above"></table>
+          </div>
+          <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <h3 class="font-bold text-slate-800 mb-3"><span id="d5-dept-name">소속 담당</span> 내 지점 순위 (<span class="org-metric-label">NPS</span> 26년 누적)</h3>
+            <table class="w-full text-xs text-right border-collapse" id="table-d5-dept"></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 월별 추이 차트 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
           <h3 class="font-bold text-slate-800">월별 추이 비교 (전사 vs BS vs 강남 vs 플래그십 D5)</h3>
@@ -82,8 +118,9 @@
         <div class="h-72"><canvas id="chart-org"></canvas></div>
       </div>
 
+      <!-- 조직별 실적표 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 class="font-bold text-slate-800 mb-3">조직별 월간/누적 실적표 (<span id="org-metric-label">NPS</span> 기준)</h3>
+        <h3 class="font-bold text-slate-800 mb-3">조직별 월간/누적 실적표 (<span class="org-metric-label">NPS</span> 기준)</h3>
         <table class="w-full text-xs text-right border-collapse" id="table-org"></table>
       </div>
     </section>
@@ -208,22 +245,18 @@
         </select>
       </div>
 
-      <!-- 핵심 KPI -->
       <div id="voc-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
 
-      <!-- 월별 차트 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <h3 class="font-bold text-slate-800 mb-3">월별 클레임 / 인입기준 / VOC 귀속 현황</h3>
         <div class="h-64"><canvas id="chart-voc-month"></canvas></div>
       </div>
 
-      <!-- 매니저별 집계 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">매니저별 인입기준 / 귀속여부 / 처리현황 집계 (빈칸 제외)</h3>
         <table class="w-full text-xs text-right border-collapse" id="table-voc-mgr"></table>
       </div>
 
-      <!-- 핵심 요약 목록 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">클레임 / VOC 핵심 요약 (고객명→고객님 치환, 번호 제거)</h3>
         <table class="w-full text-xs text-left border-collapse" id="table-voc-list"></table>
@@ -233,16 +266,19 @@
   </main>
 
   <script>
-    const STORAGE_KEY = 'd5_nps_voc_app_v3';
-    let state = { org: [], raw: [], mgr: [], voc: [] };
+    const STORAGE_KEY = 'd5_nps_voc_app_v4';
+    let state = { org: [], branches: [], raw: [], mgr: [], voc: [] };
     let currentOrgMetric = 0;
     const charts = {};
     const MONTHS = ['26년누적','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
     window.onload = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('d5_nps_voc_app_v3');
       if (saved) {
-        try { state = JSON.parse(saved); } catch(e) {}
+        try {
+          const parsed = JSON.parse(saved);
+          state = { org: [], branches: [], raw: [], mgr: [], voc: [], ...parsed };
+        } catch(e) {}
       }
       initMgrPeriodSelect();
       renderAll();
@@ -319,10 +355,10 @@
       charts[id] = new Chart(ctx, config);
     }
 
-    // ==================== 1. 전사/담당/D5 ====================
+    // ==================== 1. 전사/담당/지점(D5) 비교 ====================
     function parseOrgData(persist) {
       const txt = document.getElementById('input-org').value;
-      if (!txt.trim()) return alert('붙여넣을 데이터를 입력해주세요.');
+      if (!txt.trim()) return alert('전사/담당별 데이터를 입력해주세요.');
       const rows = parseTSV(txt);
       const parsed = [];
       for (const r of rows) {
@@ -338,17 +374,43 @@
         }
         parsed.push({ name, periods });
       }
-      if (!parsed.length) return alert('유효한 데이터 행을 찾지 못했습니다.');
+      if (!parsed.length) return alert('유효한 조직 데이터 행을 찾지 못했습니다.');
       state.org = parsed;
       if (persist) saveState();
       renderOrg();
       alert(`${parsed.length}개 조직 데이터가 반영되었습니다.${persist ? ' (저장 완료)' : ' (일회성)'}`);
     }
 
+    function parseBranchData(persist) {
+      const txt = document.getElementById('input-branch').value;
+      if (!txt.trim()) return alert('지점별 54칸 데이터를 입력해주세요.');
+      const rows = parseTSV(txt);
+      const parsed = [];
+      for (const r of rows) {
+        const dept = r[0] || '';
+        const name = r[1] || '';
+        if (!name || dept === '담당' || name === '지점' || name.includes('26년누적') || name === 'NPS') continue;
+        const periods = [];
+        for (let p = 0; p < 13; p++) {
+          const base = 2 + p * 4; // 0:담당, 1:지점, 2~5:26년누적, 6~53:1~12월 (총 54칸)
+          periods.push({
+            nps: toNum(r[base]), reserve: toNum(r[base+1]),
+            store: toNum(r[base+2]), consult: toNum(r[base+3])
+          });
+        }
+        parsed.push({ dept, name, periods });
+      }
+      if (!parsed.length) return alert('유효한 지점 데이터(담당/지점/54칸)를 찾지 못했습니다.');
+      state.branches = parsed;
+      if (persist) saveState();
+      renderOrg();
+      alert(`${parsed.length}개 지점 데이터가 반영되었습니다.${persist ? ' (저장 완료)' : ' (일회성)'}`);
+    }
+
     function setOrgMetric(idx) {
       currentOrgMetric = idx;
       const labels = ['NPS','상담예약','매장경험','매니저상담'];
-      document.getElementById('org-metric-label').textContent = labels[idx];
+      document.querySelectorAll('.org-metric-label').forEach(el => el.textContent = labels[idx]);
       [0,1,2,3].forEach(i => {
         const btn = document.getElementById('org-m-' + i);
         btn.className = i === idx ? 'px-2.5 py-1 rounded bg-rose-700 text-white font-semibold' : 'px-2.5 py-1 rounded bg-slate-100 text-slate-700';
@@ -357,10 +419,13 @@
     }
 
     function renderOrg() {
+      document.getElementById('branch-count-info').textContent = `로드된 지점: ${state.branches.length}개`;
       const keys = ['nps','reserve','store','consult'];
       const key = keys[currentOrgMetric];
+
       const findOrg = (kw) => state.org.find(o => o.name.replace(/\s/g,'').includes(kw));
-      const d5 = findOrg('D5') || findOrg('플래그십');
+      const d5Branch = state.branches.find(b => b.name.replace(/\s/g,'').includes('D5') || b.name.includes('플래그십'));
+      const d5 = d5Branch || findOrg('D5') || findOrg('플래그십');
       const gangnam = findOrg('강남');
       const bs = state.org.find(o => o.name.trim() === 'BS') || findOrg('BS');
       const total = findOrg('전사');
@@ -388,6 +453,70 @@
           </div>`;
       }).join('');
 
+      // D5 지점 순위 분석 섹션
+      const rankSec = document.getElementById('d5-rank-section');
+      if (state.branches.length > 0 && d5Branch) {
+        rankSec.classList.remove('hidden');
+        const validAll = state.branches
+          .map(b => ({ ...b, val: b.periods[0]?.[key] }))
+          .filter(b => b.val !== null && b.val !== undefined)
+          .sort((a,b) => b.val - a.val);
+
+        const d5AllIdx = validAll.findIndex(b => b.name === d5Branch.name);
+        const d5AllRank = d5AllIdx >= 0 ? d5AllIdx + 1 : '-';
+        const aboveD5 = d5AllIdx > 0 ? validAll.slice(0, d5AllIdx) : [];
+
+        const deptName = d5Branch.dept || '소속 담당';
+        document.getElementById('d5-dept-name').textContent = deptName;
+        const validDept = validAll.filter(b => b.dept === d5Branch.dept);
+        const d5DeptIdx = validDept.findIndex(b => b.name === d5Branch.name);
+        const d5DeptRank = d5DeptIdx >= 0 ? d5DeptIdx + 1 : '-';
+
+        const top1 = validAll[0];
+        const gapTop1 = (top1 && d5Val !== null && d5Val !== undefined) ? (d5Val - top1.val).toFixed(1) : '-';
+
+        document.getElementById('d5-rank-kpis').innerHTML = `
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500">전체 지점 중 D5 순위</div>
+            <div class="text-2xl font-bold mt-1 lg-red-text">${d5AllRank}위 <span class="text-sm font-normal text-slate-500">/ 전체 ${validAll.length}개 지점</span></div>
+          </div>
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500">${deptName} 내 D5 순위</div>
+            <div class="text-2xl font-bold mt-1 text-blue-700">${d5DeptRank}위 <span class="text-sm font-normal text-slate-500">/ 담당 내 ${validDept.length}개 지점</span></div>
+          </div>
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500">전체 1위 (${top1 ? top1.name : '-'}) 대비 격차</div>
+            <div class="text-2xl font-bold mt-1 text-slate-900">${gapTop1 === '-' ? '-' : (gapTop1 == 0 ? '전체 1위 달성!' : gapTop1 + 'p')}</div>
+          </div>`;
+
+        document.getElementById('table-d5-above').innerHTML = aboveD5.length ? `
+          <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-center">전체순위</th><th class="p-2 text-left">담당</th><th class="p-2 text-left">지점명</th><th class="p-2">26년누적</th><th class="p-2">D5 대비</th></tr></thead>
+          <tbody>${aboveD5.map((b, i) => `
+            <tr class="border-b hover:bg-slate-50">
+              <td class="p-2 text-center font-bold">${i + 1}위</td>
+              <td class="p-2 text-left text-slate-500">${b.dept}</td>
+              <td class="p-2 text-left font-semibold">${b.name}</td>
+              <td class="p-2 font-bold">${b.val.toFixed(1)}</td>
+              <td class="p-2 text-rose-600">+${(b.val - d5Val).toFixed(1)}p</td>
+            </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-emerald-700 font-bold">현재 전체 지점 1위입니다! (D5보다 높은 지점이 없습니다)</td></tr>';
+
+        document.getElementById('table-d5-dept').innerHTML = validDept.length ? `
+          <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-center">담당순위</th><th class="p-2 text-left">지점명</th><th class="p-2">26년누적</th><th class="p-2">전체순위</th></tr></thead>
+          <tbody>${validDept.map((b, i) => {
+            const isD5 = b.name === d5Branch.name;
+            const gRank = validAll.findIndex(x => x.name === b.name) + 1;
+            return `<tr class="border-b ${isD5 ? 'bg-rose-50 font-bold' : 'hover:bg-slate-50'}">
+              <td class="p-2 text-center">${i + 1}위</td>
+              <td class="p-2 text-left ${isD5 ? 'lg-red-text' : ''}">${b.name}</td>
+              <td class="p-2 ${isD5 ? 'lg-red-text' : ''}">${b.val.toFixed(1)}</td>
+              <td class="p-2 text-slate-500">${gRank}위</td>
+            </tr>`;
+          }).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">소속 담당 지점 데이터가 없습니다.</td></tr>';
+      } else {
+        rankSec.classList.add('hidden');
+      }
+
+      // 월별 추이 차트
       const targets = [
         { label: '플래그십 D5', obj: d5, color: '#A50034', width: 3 },
         { label: '강남담당', obj: gangnam, color: '#2563eb', width: 2 },
@@ -410,8 +539,13 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
       });
 
+      // 조직별 표 (D5가 지점 데이터에만 있으면 맨 아래에 함께 표시)
+      const tableRows = [...state.org];
+      if (d5Branch && !state.org.some(o => o.name.includes('D5') || o.name.includes('플래그십'))) {
+        tableRows.push({ name: d5Branch.name, periods: d5Branch.periods });
+      }
       const tbl = document.getElementById('table-org');
-      if (!state.org.length) {
+      if (!tableRows.length) {
         tbl.innerHTML = '<tr><td class="py-8 text-center text-slate-400">데이터를 붙여넣거나 상단 [샘플 데이터 테스트]를 눌러주세요.</td></tr>';
         return;
       }
@@ -423,7 +557,7 @@
           </tr>
         </thead>
         <tbody>
-          ${state.org.map(o => {
+          ${tableRows.map(o => {
             const isD5 = o.name.includes('D5') || o.name.includes('플래그십');
             return `<tr class="border-b border-slate-100 ${isD5 ? 'bg-rose-50 font-bold' : 'hover:bg-slate-50'}">
               <td class="p-2 text-left whitespace-nowrap">${o.name}</td>
@@ -453,12 +587,8 @@
         });
       }
       if (!parsed.length) return alert('유효한 NPS 점수(17번째 열, 1~5점)를 찾지 못했습니다.');
-      if (persist) {
-        state.raw = state.raw.concat(parsed);
-        saveState();
-      } else {
-        state.raw = parsed;
-      }
+      if (persist) { state.raw = state.raw.concat(parsed); saveState(); }
+      else { state.raw = parsed; }
       populateRawFilters();
       renderRaw();
       alert(`${parsed.length}건이 처리되었습니다.${persist ? ' (누적 저장 완료)' : ' (일회성 분석)'}`);
@@ -466,10 +596,7 @@
 
     function clearRawData() {
       if (!confirm('NPS 로우데이터를 모두 비우시겠습니까?')) return;
-      state.raw = [];
-      saveState();
-      populateRawFilters();
-      renderRaw();
+      state.raw = []; saveState(); populateRawFilters(); renderRaw();
     }
 
     function populateRawFilters() {
@@ -510,48 +637,34 @@
         </div>`).join('');
 
       const weekMap = {};
-      data.forEach(r => {
-        if (!weekMap[r.week]) weekMap[r.week] = { sum: 0, cnt: 0 };
-        weekMap[r.week].sum += r.score100; weekMap[r.week].cnt++;
-      });
+      data.forEach(r => { if (!weekMap[r.week]) weekMap[r.week] = { sum: 0, cnt: 0 }; weekMap[r.week].sum += r.score100; weekMap[r.week].cnt++; });
       const weekLabels = Object.keys(weekMap);
       makeChart('chart-raw-week', {
         type: 'line',
-        data: {
-          labels: weekLabels,
-          datasets: [{ label: '주차별 NPS', data: weekLabels.map(w => +(weekMap[w].sum/weekMap[w].cnt).toFixed(1)), borderColor: '#A50034', backgroundColor: 'rgba(165,0,52,0.1)', fill: true, tension: 0.2 }]
-        },
+        data: { labels: weekLabels, datasets: [{ label: '주차별 NPS', data: weekLabels.map(w => +(weekMap[w].sum/weekMap[w].cnt).toFixed(1)), borderColor: '#A50034', backgroundColor: 'rgba(165,0,52,0.1)', fill: true, tension: 0.2 }] },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
       });
 
       const monthMap = {};
-      data.forEach(r => {
-        if (!monthMap[r.month]) monthMap[r.month] = { sum: 0, cnt: 0 };
-        monthMap[r.month].sum += r.score100; monthMap[r.month].cnt++;
-      });
+      data.forEach(r => { if (!monthMap[r.month]) monthMap[r.month] = { sum: 0, cnt: 0 }; monthMap[r.month].sum += r.score100; monthMap[r.month].cnt++; });
       const monthLabels = Object.keys(monthMap).sort((a,b) => parseInt(a)-parseInt(b));
       makeChart('chart-raw-month', {
         type: 'bar',
-        data: {
-          labels: monthLabels,
-          datasets: [{ label: '월별 NPS', data: monthLabels.map(m => +(monthMap[m].sum/monthMap[m].cnt).toFixed(1)), backgroundColor: '#1e293b', borderRadius: 6 }]
-        },
+        data: { labels: monthLabels, datasets: [{ label: '월별 NPS', data: monthLabels.map(m => +(monthMap[m].sum/monthMap[m].cnt).toFixed(1)), backgroundColor: '#1e293b', borderRadius: 6 }] },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
       });
 
       const mgrMap = {};
       data.forEach(r => {
         if (!mgrMap[r.manager]) mgrMap[r.manager] = { cnt:0, sum:0, s5:0, s4:0, s3:0, s2:0, s1:0 };
-        const m = mgrMap[r.manager];
-        m.cnt++; m.sum += r.score100; m['s'+r.score5]++;
+        const m = mgrMap[r.manager]; m.cnt++; m.sum += r.score100; m['s'+r.score5]++;
       });
       const mgrArr = Object.entries(mgrMap).map(([name, m]) => ({ name, ...m, avg: m.sum/m.cnt })).sort((a,b) => b.avg - a.avg);
       document.getElementById('table-raw-mgr').innerHTML = mgrArr.length ? `
         <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총건수</th><th class="p-2">환산 NPS</th><th class="p-2">5점(100)</th><th class="p-2">4점(75)</th><th class="p-2">3점(50)</th><th class="p-2">2점(25)</th><th class="p-2">1점(0)</th></tr></thead>
         <tbody>${mgrArr.map(m => `
           <tr class="border-b hover:bg-slate-50">
-            <td class="p-2 text-left font-semibold">${m.name}</td>
-            <td class="p-2">${m.cnt}</td>
+            <td class="p-2 text-left font-semibold">${m.name}</td><td class="p-2">${m.cnt}</td>
             <td class="p-2 font-bold lg-red-text">${m.avg.toFixed(1)}</td>
             <td class="p-2">${m.s5}</td><td class="p-2">${m.s4}</td><td class="p-2">${m.s3}</td><td class="p-2">${m.s2}</td><td class="p-2">${m.s1}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>';
@@ -561,11 +674,9 @@
         <thead><tr class="bg-slate-100 border-b"><th class="p-2">주차</th><th class="p-2">매니저</th><th class="p-2">점수(환산)</th><th class="p-2">구매목록</th><th class="p-2">상세내용</th></tr></thead>
         <tbody>${comments.map(c => `
           <tr class="border-b ${c.score5 <= 3 ? 'bg-amber-50' : ''}">
-            <td class="p-2 whitespace-nowrap">${c.week}</td>
-            <td class="p-2 whitespace-nowrap font-semibold">${c.manager}</td>
+            <td class="p-2 whitespace-nowrap">${c.week}</td><td class="p-2 whitespace-nowrap font-semibold">${c.manager}</td>
             <td class="p-2 whitespace-nowrap font-bold ${c.score5 <= 3 ? 'text-rose-600' : 'text-emerald-700'}">${c.score5}점 (${c.score100})</td>
-            <td class="p-2">${c.items}</td>
-            <td class="p-2">${c.detail || '-'}</td>
+            <td class="p-2">${c.items}</td><td class="p-2">${c.detail || '-'}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 코멘트가 없습니다.</td></tr>';
     }
 
@@ -607,10 +718,7 @@
 
       makeChart('chart-mgr', {
         type: 'bar',
-        data: {
-          labels: list.map(m => m.name),
-          datasets: [{ label: '누적 NPS 점수', data: list.map(m => m.cur.score), backgroundColor: '#A50034', borderRadius: 5 }]
-        },
+        data: { labels: list.map(m => m.name), datasets: [{ label: '누적 NPS 점수', data: list.map(m => m.cur.score), backgroundColor: '#A50034', borderRadius: 5 }] },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
       });
 
@@ -619,42 +727,33 @@
         <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">사번</th><th class="p-2 text-left">이름</th><th class="p-2 text-left">직무/직책</th><th class="p-2">점수</th><th class="p-2">비중</th><th class="p-2">총건수</th><th class="p-2">5점</th><th class="p-2">4점</th><th class="p-2">3점</th><th class="p-2">2점</th><th class="p-2">1점</th></tr></thead>
         <tbody>${list.map(m => `
           <tr class="border-b hover:bg-slate-50">
-            <td class="p-2 text-left text-slate-500">${m.empId}</td>
-            <td class="p-2 text-left font-bold">${m.name}</td>
-            <td class="p-2 text-left">${m.role} ${m.title}</td>
-            <td class="p-2 font-bold lg-red-text">${m.cur.score.toFixed(1)}</td>
-            <td class="p-2">${m.cur.ratio || '-'}</td>
-            <td class="p-2">${m.cur.total ?? '-'}</td>
+            <td class="p-2 text-left text-slate-500">${m.empId}</td><td class="p-2 text-left font-bold">${m.name}</td>
+            <td class="p-2 text-left">${m.role} ${m.title}</td><td class="p-2 font-bold lg-red-text">${m.cur.score.toFixed(1)}</td>
+            <td class="p-2">${m.cur.ratio || '-'}</td><td class="p-2">${m.cur.total ?? '-'}</td>
             <td class="p-2">${m.cur.s5 ?? 0}</td><td class="p-2">${m.cur.s4 ?? 0}</td><td class="p-2">${m.cur.s3 ?? 0}</td><td class="p-2">${m.cur.s2 ?? 0}</td><td class="p-2">${m.cur.s1 ?? 0}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">매니저 누적 데이터를 붙여넣어 주세요.</td></tr>';
     }
 
-    // ==================== 4. VOC & 클레임 (16칸 기준 / 고객님 치환 / 빈칸 제외) ====================
-    function escapeRegex(str) {
-      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
+    // ==================== 4. VOC & 클레임 (16칸 기준) ====================
+    function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
     function summarizeVocContent(rawText, custName, phoneTail) {
       if (!rawText) return '-';
       let s = String(rawText);
-      // 고객명이 내용에 들어가 있으면 '고객님'으로 치환
       if (custName && custName.trim().length >= 2 && !['고객','고객님','무기명'].includes(custName.trim())) {
         const cleanName = custName.replace(/님$/, '').trim();
         if (cleanName.length >= 2) {
           s = s.replace(new RegExp(escapeRegex(cleanName) + '(?:\\s*고객님|\\s*님)?', 'g'), '고객님');
         }
       }
-      // 전화번호 뒷번호 제거
       if (phoneTail && phoneTail.trim().length >= 4) {
         s = s.replace(new RegExp(escapeRegex(phoneTail.trim()), 'g'), '');
       }
-      // 휴대폰, 일반전화, VOC번호/접수번호/주문번호 제거
       s = s
         .replace(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g, '')
         .replace(/\b\d{2,3}[-\s.]\d{3,4}[-\s.]\d{4}\b/g, '')
         .replace(/(?:VOC|접수|주문|상담)?\s*(?:번호|NO\.?|#)?\s*[:：]?\s*[A-Za-z0-9-]*\d{5,}[A-Za-z0-9-]*/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+        .replace(/\s+/g, ' ').trim();
       if (!s) return '요약 내용 없음';
       const firstLine = s.split(/(?<=[.!?])\s+|\n/)[0].trim();
       return firstLine.length > 45 ? firstLine.slice(0, 45) + '...' : firstLine;
@@ -662,7 +761,7 @@
 
     function classifyVocAttr(val) {
       const s = String(val || '').trim();
-      if (!s || s === '-' || s === '없음') return ''; // 빈칸은 카운팅 안 함
+      if (!s || s === '-' || s === '없음') return '';
       if (s.includes('미귀속') || s.includes('비귀속') || s === 'X' || s === 'N') return '미귀속';
       if (s.includes('진행') || s.includes('대기') || s.includes('검토') || s.includes('확인')) return '진행중';
       if (s.includes('귀속') || s === 'O' || s === 'Y') return '귀속';
@@ -677,7 +776,7 @@
 
     function classifyVocStatus(val) {
       const s = String(val || '').trim();
-      if (!s || s === '-') return ''; // 빈칸은 카운팅 안 함
+      if (!s || s === '-') return '';
       if (s.includes('미완료') || s.includes('진행') || s.includes('대기') || s.includes('협의') || s.includes('처리중')) return '진행중';
       if (s.includes('완료') || s.includes('종료') || s.includes('해결') || s.includes('종결')) return '완료';
       return '';
@@ -699,25 +798,16 @@
       for (const r of rows) {
         if (!r[3] || r[0] === '년' || r[3] === '매니저명') continue;
         const mNum = String(r[1] || '').replace(/[^0-9]/g, '');
-        // 16칸 매핑: 0:년 1:월 2:일 3:매니저명 4:고객명 5:뒷번호 6:구매일자 7:인입기준 8:VOC귀속여부 9:내용 10:처리담당자 11:처리사항 12~15:프로세스1~4차
         parsed.push({
           year: r[0] || '', month: mNum ? mNum + '월' : (r[1] || '미분류'), day: r[2] || '',
-          manager: r[3],
-          inflowRaw: r[7] || '-', inflow: isVocInflow(r[7]),
-          attr: classifyVocAttr(r[8]),
-          summary: summarizeVocContent(r[9], r[4], r[5]),
-          handler: r[10] || '-',
-          status: classifyVocStatus(r[11]),
-          process: getLatestProcess(r)
+          manager: r[3], inflowRaw: r[7] || '-', inflow: isVocInflow(r[7]),
+          attr: classifyVocAttr(r[8]), summary: summarizeVocContent(r[9], r[4], r[5]),
+          handler: r[10] || '-', status: classifyVocStatus(r[11]), process: getLatestProcess(r)
         });
       }
       if (!parsed.length) return alert('유효한 VOC/클레임 행을 찾지 못했습니다.');
-      if (persist) {
-        state.voc = state.voc.concat(parsed);
-        saveState();
-      } else {
-        state.voc = parsed;
-      }
+      if (persist) { state.voc = state.voc.concat(parsed); saveState(); }
+      else { state.voc = parsed; }
       populateVocFilters();
       renderVoc();
       alert(`${parsed.length}건이 반영되었습니다. (고객명→'고객님' 치환 / 번호 제거 / 빈칸 카운팅 제외)`);
@@ -725,10 +815,7 @@
 
     function clearVocData() {
       if (!confirm('VOC 및 클레임 데이터를 모두 비우시겠습니까?')) return;
-      state.voc = [];
-      saveState();
-      populateVocFilters();
-      renderVoc();
+      state.voc = []; saveState(); populateVocFilters(); renderVoc();
     }
 
     function populateVocFilters() {
@@ -777,11 +864,8 @@
       const mMap = {};
       data.forEach(v => {
         if (!mMap[v.month]) mMap[v.month] = { total:0, inflow:0, yes:0, no:0, ing:0 };
-        mMap[v.month].total++;
-        if (v.inflow) mMap[v.month].inflow++;
-        if (v.attr === '귀속') mMap[v.month].yes++;
-        else if (v.attr === '미귀속') mMap[v.month].no++;
-        else if (v.attr === '진행중') mMap[v.month].ing++;
+        mMap[v.month].total++; if (v.inflow) mMap[v.month].inflow++;
+        if (v.attr === '귀속') mMap[v.month].yes++; else if (v.attr === '미귀속') mMap[v.month].no++; else if (v.attr === '진행중') mMap[v.month].ing++;
       });
       const mLabels = Object.keys(mMap).sort((a,b) => parseInt(a)-parseInt(b));
       makeChart('chart-voc-month', {
@@ -811,14 +895,10 @@
         <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총 클레임</th><th class="p-2">인입기준 해당</th><th class="p-2">VOC 귀속</th><th class="p-2">미귀속</th><th class="p-2">귀속 진행중</th><th class="p-2">처리 완료</th><th class="p-2">처리 진행중</th></tr></thead>
         <tbody>${mgArr.map(([name, m]) => `
           <tr class="border-b hover:bg-slate-50">
-            <td class="p-2 text-left font-bold">${name}</td>
-            <td class="p-2">${m.total}</td>
-            <td class="p-2 font-bold text-slate-900">${m.inflow}</td>
-            <td class="p-2 text-rose-700 font-bold">${m.yes}</td>
-            <td class="p-2">${m.no}</td>
-            <td class="p-2 text-amber-600">${m.ing}</td>
-            <td class="p-2 text-emerald-700 font-semibold">${m.done}</td>
-            <td class="p-2 text-amber-600 font-semibold">${m.stIng}</td>
+            <td class="p-2 text-left font-bold">${name}</td><td class="p-2">${m.total}</td>
+            <td class="p-2 font-bold text-slate-900">${m.inflow}</td><td class="p-2 text-rose-700 font-bold">${m.yes}</td>
+            <td class="p-2">${m.no}</td><td class="p-2 text-amber-600">${m.ing}</td>
+            <td class="p-2 text-emerald-700 font-semibold">${m.done}</td><td class="p-2 text-amber-600 font-semibold">${m.stIng}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">VOC/클레임 데이터가 없습니다.</td></tr>';
 
       document.getElementById('table-voc-list').innerHTML = data.length ? `
@@ -837,6 +917,7 @@
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">요약할 내역이 없습니다.</td></tr>';
     }
 
+    // ==================== 엑셀 / JSON 내보내기 ====================
     function exportVocExcel() {
       if (!state.voc.length) return alert('내보낼 VOC/클레임 데이터가 없습니다.');
       const wb = XLSX.utils.book_new();
@@ -868,7 +949,15 @@
           MONTHS.forEach((m, i) => { obj[m + '_NPS'] = o.periods[i]?.nps ?? ''; });
           return obj;
         });
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '전사_담당_D5_NPS');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '전사_담당_NPS');
+      }
+      if (state.branches.length) {
+        const sorted = [...state.branches].sort((a,b) => (b.periods[0]?.nps ?? -1) - (a.periods[0]?.nps ?? -1));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sorted.map((b, i) => ({
+          전체순위: i + 1, 담당: b.dept, 지점: b.name,
+          '26년누적_NPS': b.periods[0]?.nps ?? '', '상담예약': b.periods[0]?.reserve ?? '',
+          '매장경험': b.periods[0]?.store ?? '', '매니저상담': b.periods[0]?.consult ?? ''
+        }))), '지점별_NPS_순위');
       }
       if (state.raw.length) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.raw.map(r => ({
@@ -902,9 +991,8 @@
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
-          state = JSON.parse(ev.target.result);
-          saveState();
-          renderAll();
+          state = { org: [], branches: [], raw: [], mgr: [], voc: [], ...JSON.parse(ev.target.result) };
+          saveState(); renderAll();
           alert('백업 파일이 성공적으로 복원되었습니다.');
         } catch { alert('올바른 JSON 백업 파일이 아닙니다.'); }
       };
@@ -913,7 +1001,7 @@
 
     function resetAllData() {
       if (!confirm('저장된 모든 데이터를 초기화하시겠습니까?')) return;
-      state = { org: [], raw: [], mgr: [], voc: [] };
+      state = { org: [], branches: [], raw: [], mgr: [], voc: [] };
       localStorage.removeItem(STORAGE_KEY);
       renderAll();
     }
@@ -929,20 +1017,23 @@
       state.org = [
         { name: '전사', periods: [{nps:82.4,reserve:80,store:83,consult:84},{nps:81.2,reserve:79,store:82,consult:83},{nps:82.0,reserve:80,store:82,consult:84},{nps:83.1,reserve:81,store:84,consult:85},{nps:82.8,reserve:80,store:83,consult:84}] },
         { name: 'BS', periods: [{nps:83.5,reserve:81,store:84,consult:85},{nps:82.4,reserve:80,store:83,consult:84},{nps:83.1,reserve:81,store:83,consult:85},{nps:84.2,reserve:82,store:85,consult:86},{nps:84.0,reserve:82,store:84,consult:85}] },
-        { name: '강남', periods: [{nps:85.1,reserve:83,store:86,consult:87},{nps:84.0,reserve:82,store:85,consult:86},{nps:84.8,reserve:83,store:85,consult:86},{nps:86.0,reserve:84,store:87,consult:88},{nps:85.5,reserve:84,store:86,consult:87}] },
-        { name: 'LG전자 플래그십 D5', periods: [{nps:88.6,reserve:87,store:89,consult:91},{nps:87.2,reserve:85,store:88,consult:90},{nps:88.0,reserve:86,store:88,consult:90},{nps:89.5,reserve:88,store:90,consult:92},{nps:89.8,reserve:89,store:90,consult:92}] }
+        { name: '강남', periods: [{nps:85.1,reserve:83,store:86,consult:87},{nps:84.0,reserve:82,store:85,consult:86},{nps:84.8,reserve:83,store:85,consult:86},{nps:86.0,reserve:84,store:87,consult:88},{nps:85.5,reserve:84,store:86,consult:87}] }
+      ];
+      state.branches = [
+        { dept: '경원', name: '수원본점', periods: [{nps:91.2,reserve:90,store:91,consult:92}] },
+        { dept: '강남', name: '강남본점', periods: [{nps:89.4,reserve:88,store:90,consult:91}] },
+        { dept: '강남', name: 'LG전자 플래그십 D5', periods: [{nps:88.6,reserve:87,store:89,consult:91},{nps:87.2,reserve:85,store:88,consult:90},{nps:88.0,reserve:86,store:88,consult:90},{nps:89.5,reserve:88,store:90,consult:92},{nps:89.8,reserve:89,store:90,consult:92}] },
+        { dept: '강남', name: '문정본점', periods: [{nps:86.1,reserve:85,store:86,consult:87}] },
+        { dept: '서부', name: '목동본점', periods: [{nps:84.5,reserve:83,store:85,consult:86}] }
       ];
       state.raw = [
         { region:'강남', branch:'D5', empId:'1001', manager:'김철수', items:'냉장고', week:'10월 3주', month:'10월', score5:5, score100:100, npsType:'추천', detail:'매우 친절하게 설명해주셨습니다.' },
-        { region:'강남', branch:'D5', empId:'1001', manager:'김철수', items:'워시타워', week:'10월 4주', month:'10월', score5:4, score100:75, npsType:'중립', detail:'배송 일정 안내가 조금 아쉬웠음' },
         { region:'강남', branch:'D5', empId:'1002', manager:'이영희', items:'TV', week:'11월 1주', month:'11월', score5:5, score100:100, npsType:'추천', detail:'혜택 비교를 꼼꼼히 해주심' },
-        { region:'강남', branch:'D5', empId:'1003', manager:'박민수', items:'에어컨', week:'11월 1주', month:'11월', score5:3, score100:50, npsType:'비추천', detail:'대기 시간이 길었습니다.' },
-        { region:'강남', branch:'D5', empId:'1002', manager:'이영희', items:'식기세척기', week:'11월 2주', month:'11월', score5:5, score100:100, npsType:'추천', detail:'만족합니다.' }
+        { region:'강남', branch:'D5', empId:'1003', manager:'박민수', items:'에어컨', week:'11월 1주', month:'11월', score5:3, score100:50, npsType:'비추천', detail:'대기 시간이 길었습니다.' }
       ];
       state.mgr = [
         { empId:'1001', name:'김철수', role:'판매', title:'책임', periods:[{score:91.5,ratio:'18%',total:24,s5:19,s4:4,s3:1,s2:0,s1:0}] },
-        { empId:'1002', name:'이영희', role:'판매', title:'선임', periods:[{score:94.2,ratio:'22%',total:30,s5:26,s4:3,s3:1,s2:0,s1:0}] },
-        { empId:'1003', name:'박민수', role:'판매', title:'사원', periods:[{score:82.0,ratio:'12%',total:15,s5:9,s4:4,s3:1,s2:1,s1:0}] }
+        { empId:'1002', name:'이영희', role:'판매', title:'선임', periods:[{score:94.2,ratio:'22%',total:30,s5:26,s4:3,s3:1,s2:0,s1:0}] }
       ];
       state.voc = [
         { year:'2026', month:'10월', day:'15', manager:'김철수', inflowRaw:'해당', inflow:true, attr:'귀속', summary:'고객님 설치 일정 지연 불만 접수', handler:'홍길동', status:'완료', process:'2차' },
@@ -950,7 +1041,7 @@
         { year:'2026', month:'11월', day:'12', manager:'이영희', inflowRaw:'해당', inflow:true, attr:'진행중', summary:'고객님 사은품 누락 확인 요청', handler:'이담당', status:'진행중', process:'1차' }
       ];
       renderAll();
-      alert('테스트용 샘플 데이터가 로드되었습니다. 각 탭을 눌러 확인해보세요!');
+      alert('샘플 데이터가 로드되었습니다. 탭 1에서 D5 전체 순위와 담당 내 순위를 확인해보세요!');
     }
   </script>
 </body>
