@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
   <title>D5 NPS & VOC 통합 분석 대시보드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -16,7 +17,6 @@
     @media print {
       .no-print { display: none !important; }
       body { background: #fff; }
-      .print-break { page-break-before: always; }
       .shadow, .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
     }
   </style>
@@ -67,10 +67,8 @@
         </div>
       </div>
 
-      <!-- 핵심 비교 KPI 카드 -->
       <div id="org-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
 
-      <!-- 차트 영역 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
           <h3 class="font-bold text-slate-800">월별 추이 비교 (전사 vs BS vs 강남 vs 플래그십 D5)</h3>
@@ -84,7 +82,6 @@
         <div class="h-72"><canvas id="chart-org"></canvas></div>
       </div>
 
-      <!-- 전체 표 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">조직별 월간/누적 실적표 (<span id="org-metric-label">NPS</span> 기준)</h3>
         <table class="w-full text-xs text-right border-collapse" id="table-org"></table>
@@ -109,7 +106,6 @@
         </div>
       </div>
 
-      <!-- 필터 -->
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-3 items-center text-xs no-print">
         <span class="font-bold text-slate-700">필터:</span>
         <select id="filter-raw-month" onchange="renderRaw()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
@@ -117,10 +113,8 @@
         <select id="filter-raw-mgr" onchange="renderRaw()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
       </div>
 
-      <!-- KPI -->
       <div id="raw-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
 
-      <!-- 차트 2개 -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <h3 class="font-bold text-slate-800 mb-3">주차별 NPS 추이 (100점 환산)</h3>
@@ -132,13 +126,11 @@
         </div>
       </div>
 
-      <!-- 매니저별 집계표 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">매니저별 NPS 분석표 (로우데이터 기준)</h3>
         <table class="w-full text-xs text-right border-collapse" id="table-raw-mgr"></table>
       </div>
 
-      <!-- 상세내용 리스트 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">고객 상세내용 (코멘트)</h3>
         <table class="w-full text-xs text-left border-collapse" id="table-raw-detail"></table>
@@ -194,7 +186,6 @@
         </div>
       </div>
 
-      <!-- 필터 -->
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-3 items-center text-xs no-print">
         <span class="font-bold text-slate-700">필터:</span>
         <select id="filter-voc-month" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
@@ -212,22 +203,18 @@
         </select>
       </div>
 
-      <!-- KPI -->
       <div id="voc-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
 
-      <!-- 월별 추이 차트 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <h3 class="font-bold text-slate-800 mb-3">월별 지점 전체 클레임 및 VOC 귀속 현황</h3>
         <div class="h-64"><canvas id="chart-voc-month"></canvas></div>
       </div>
 
-      <!-- 매니저별 집계 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">매니저별 클레임 / VOC 귀속 / 처리현황 집계</h3>
         <table class="w-full text-xs text-right border-collapse" id="table-voc-mgr"></table>
       </div>
 
-      <!-- 상세 목록 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-slate-800 mb-3">클레임 / VOC 상세 내역</h3>
         <table class="w-full text-xs text-left border-collapse" id="table-voc-list"></table>
@@ -237,19 +224,12 @@
   </main>
 
   <script>
-    // ==================== 상태 관리 ====================
     const STORAGE_KEY = 'd5_nps_voc_app_v1';
-    let state = {
-      org: [],      // 전사/담당/D5 데이터
-      raw: [],      // NPS 로우데이터
-      mgr: [],      // 매니저별 누적 데이터
-      voc: []       // VOC & 클레임 데이터
-    };
-    let currentOrgMetric = 0; // 0:NPS, 1:상담예약, 2:매장경험, 3:매니저상담
+    let state = { org: [], raw: [], mgr: [], voc: [] };
+    let currentOrgMetric = 0;
     const charts = {};
     const MONTHS = ['26년누적','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
-    // 초기화
     window.onload = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -277,7 +257,6 @@
       });
     }
 
-    // ==================== 공용 유틸 (TSV 파서 & 숫자 변환) ====================
     function parseTSV(text) {
       const rows = [];
       let row = [], cell = '', inQuotes = false;
@@ -331,7 +310,6 @@
       charts[id] = new Chart(ctx, config);
     }
 
-    // ==================== 1. 전사/담당/D5 데이터 ====================
     function parseOrgData(persist) {
       const txt = document.getElementById('input-org').value;
       if (!txt.trim()) return alert('붙여넣을 데이터를 입력해주세요.');
@@ -402,7 +380,6 @@
           </div>`;
       }).join('');
 
-      // 차트 (1월~12월)
       const targets = [
         { label: '플래그십 D5', obj: d5, color: '#A50034', width: 3 },
         { label: '강남담당', obj: gangnam, color: '#2563eb', width: 2 },
@@ -428,7 +405,6 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
       });
 
-      // 표
       const tbl = document.getElementById('table-org');
       if (!state.org.length) {
         tbl.innerHTML = '<tr><td class="py-8 text-center text-slate-400">데이터를 붙여넣거나 상단 [샘플 데이터 테스트]를 눌러주세요.</td></tr>';
@@ -452,7 +428,6 @@
         </tbody>`;
     }
 
-    // ==================== 2. NPS 로우데이터 ====================
     function parseRawData(persist) {
       const txt = document.getElementById('input-raw').value;
       if (!txt.trim()) return alert('로우데이터를 입력해주세요.');
@@ -528,7 +503,6 @@
           <div class="text-xl font-bold mt-1 ${k.hi ? 'lg-red-text' : k.warn ? 'text-amber-600' : 'text-slate-900'}">${k.v}</div>
         </div>`).join('');
 
-      // 주차별 집계
       const weekMap = {};
       data.forEach(r => {
         if (!weekMap[r.week]) weekMap[r.week] = { sum: 0, cnt: 0 };
@@ -544,7 +518,6 @@
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
       });
 
-      // 월별 집계
       const monthMap = {};
       data.forEach(r => {
         if (!monthMap[r.month]) monthMap[r.month] = { sum: 0, cnt: 0 };
@@ -560,7 +533,6 @@
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
       });
 
-      // 매니저별 집계표
       const mgrMap = {};
       data.forEach(r => {
         if (!mgrMap[r.manager]) mgrMap[r.manager] = { cnt:0, sum:0, s5:0, s4:0, s3:0, s2:0, s1:0 };
@@ -578,7 +550,6 @@
             <td class="p-2">${m.s5}</td><td class="p-2">${m.s4}</td><td class="p-2">${m.s3}</td><td class="p-2">${m.s2}</td><td class="p-2">${m.s1}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>';
 
-      // 상세내용 표
       const comments = data.filter(r => r.detail || r.score5 <= 3);
       document.getElementById('table-raw-detail').innerHTML = comments.length ? `
         <thead><tr class="bg-slate-100 border-b"><th class="p-2">주차</th><th class="p-2">매니저</th><th class="p-2">점수(환산)</th><th class="p-2">구매목록</th><th class="p-2">상세내용</th></tr></thead>
@@ -592,7 +563,6 @@
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 코멘트가 없습니다.</td></tr>';
     }
 
-    // ==================== 3. 매니저별 누적 NPS ====================
     function initMgrPeriodSelect() {
       const sel = document.getElementById('filter-mgr-period');
       sel.innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m === '26년누적' ? '26년 누적' : m + ' 누적'}</option>`).join('');
@@ -652,7 +622,6 @@
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">매니저 누적 데이터를 붙여넣어 주세요.</td></tr>';
     }
 
-    // ==================== 4. VOC & 클레임 관리 ====================
     function classifyVocAttr(val) {
       const s = String(val || '').trim();
       if (s.includes('미귀속') || s.includes('비귀속') || s === 'X' || s === 'N') return '미귀속';
@@ -748,7 +717,6 @@
           <div class="text-xl font-bold mt-1 ${k.hi ? 'lg-red-text' : k.warn ? 'text-amber-600' : 'text-slate-900'}">${k.v}</div>
         </div>`).join('');
 
-      // 월별 차트
       const mMap = {};
       data.forEach(v => {
         if (!mMap[v.month]) mMap[v.month] = { total:0, yes:0, no:0, ing:0 };
@@ -769,4 +737,154 @@
             { label: '진행중', data: mLabels.map(m => mMap[m].ing), backgroundColor: '#f59e0b' }
           ]
         },
-        options
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+      });
+
+      const mgMap = {};
+      data.forEach(v => {
+        if (!mgMap[v.manager]) mgMap[v.manager] = { total:0, inflow:0, yes:0, no:0, ing:0, done:0 };
+        const m = mgMap[v.manager];
+        m.total++; if (v.inflow) m.inflow++;
+        if (v.attr === '귀속') m.yes++; else if (v.attr === '미귀속') m.no++; else m.ing++;
+        if (v.done) m.done++;
+      });
+      const mgArr = Object.entries(mgMap).sort((a,b) => b[1].total - a[1].total);
+      document.getElementById('table-voc-mgr').innerHTML = mgArr.length ? `
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총 클레임</th><th class="p-2">인입기준 해당</th><th class="p-2">VOC 귀속</th><th class="p-2">VOC 미귀속</th><th class="p-2">귀속 진행중</th><th class="p-2">처리완료</th><th class="p-2">미완료</th></tr></thead>
+        <tbody>${mgArr.map(([name, m]) => `
+          <tr class="border-b hover:bg-slate-50">
+            <td class="p-2 text-left font-bold">${name}</td>
+            <td class="p-2 font-bold">${m.total}</td><td class="p-2">${m.inflow}</td>
+            <td class="p-2 text-rose-700 font-bold">${m.yes}</td><td class="p-2">${m.no}</td><td class="p-2 text-amber-600">${m.ing}</td>
+            <td class="p-2 text-emerald-700">${m.done}</td><td class="p-2 text-slate-600">${m.total - m.done}</td>
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">VOC/클레임 데이터가 없습니다.</td></tr>';
+
+      document.getElementById('table-voc-list').innerHTML = data.length ? `
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2">접수일</th><th class="p-2">매니저</th><th class="p-2">인입기준</th><th class="p-2">VOC귀속</th><th class="p-2">내용</th><th class="p-2">처리사항</th><th class="p-2">프로세스</th></tr></thead>
+        <tbody>${data.map(v => `
+          <tr class="border-b hover:bg-slate-50">
+            <td class="p-2 whitespace-nowrap">${v.year}.${v.month}.${v.day}</td>
+            <td class="p-2 whitespace-nowrap font-semibold">${v.manager}</td>
+            <td class="p-2 whitespace-nowrap">${v.inflowRaw}</td>
+            <td class="p-2 whitespace-nowrap font-bold ${v.attr==='귀속'?'text-rose-700':v.attr==='진행중'?'text-amber-600':'text-slate-500'}">${v.attrRaw}</td>
+            <td class="p-2">${v.content}</td>
+            <td class="p-2 whitespace-nowrap font-semibold ${v.done?'text-emerald-700':'text-amber-600'}">${v.statusRaw}</td>
+            <td class="p-2 whitespace-nowrap">${v.process}</td>
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 내역이 없습니다.</td></tr>';
+    }
+
+    function exportVocExcel() {
+      if (!state.voc.length) return alert('내보낼 VOC/클레임 데이터가 없습니다.');
+      const wb = XLSX.utils.book_new();
+      const wsList = XLSX.utils.json_to_sheet(state.voc.map(v => ({
+        년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager, 고객명: v.customer,
+        뒷번호: v.phone, 구매일자: v.buyDate, 인입기준: v.inflowRaw, VOC귀속여부: v.attrRaw,
+        내용: v.content, 처리사항: v.statusRaw, 프로세스: v.process
+      })));
+      XLSX.utils.book_append_sheet(wb, wsList, 'VOC_클레임_상세');
+
+      const mgMap = {};
+      state.voc.forEach(v => {
+        if (!mgMap[v.manager]) mgMap[v.manager] = { 매니저명: v.manager, 총클레임:0, 인입해당:0, VOC귀속:0, VOC미귀속:0, 귀속진행중:0, 처리완료:0, 미완료:0 };
+        const m = mgMap[v.manager];
+        m.총클레임++; if(v.inflow) m.인입해당++;
+        if(v.attr==='귀속') m.VOC귀속++; else if(v.attr==='미귀속') m.VOC미귀속++; else m.귀속진행중++;
+        if(v.done) m.처리완료++; else m.미완료++;
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.values(mgMap)), '매니저별_집계');
+      XLSX.writeFile(wb, `D5_VOC_클레임_리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function exportAllExcel() {
+      const wb = XLSX.utils.book_new();
+      if (state.org.length) {
+        const rows = state.org.map(o => {
+          const obj = { 구분: o.name };
+          MONTHS.forEach((m, i) => { obj[m + '_NPS'] = o.periods[i]?.nps ?? ''; });
+          return obj;
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '전사_담당_D5_NPS');
+      }
+      if (state.raw.length) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.raw.map(r => ({
+          월: r.month, 주차: r.week, 매니저명: r.manager, 구매목록: r.items,
+          원점수: r.score5, 환산점수: r.score100, NPS구분: r.npsType, 상세내용: r.detail
+        }))), 'NPS_로우데이터');
+      }
+      if (state.voc.length) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.voc.map(v => ({
+          년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager, 인입기준: v.inflowRaw,
+          VOC귀속여부: v.attrRaw, 내용: v.content, 처리사항: v.statusRaw, 프로세스: v.process
+        }))), 'VOC_클레임');
+      }
+      if (!wb.SheetNames.length) return alert('내보낼 데이터가 없습니다.');
+      XLSX.writeFile(wb, `D5_NPS_VOC_통합리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function backupJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `D5_NPS_백업_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+    }
+
+    function restoreJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          state = JSON.parse(ev.target.result);
+          saveState();
+          renderAll();
+          alert('백업 파일이 성공적으로 복원되었습니다.');
+        } catch { alert('올바른 JSON 백업 파일이 아닙니다.'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetAllData() {
+      if (!confirm('저장된 모든 데이터를 초기화하시겠습니까?')) return;
+      state = { org: [], raw: [], mgr: [], voc: [] };
+      localStorage.removeItem(STORAGE_KEY);
+      renderAll();
+    }
+
+    function renderAll() {
+      renderOrg();
+      populateRawFilters(); renderRaw();
+      renderMgr();
+      populateVocFilters(); renderVoc();
+    }
+
+    function loadSampleData() {
+      state.org = [
+        { name: '전사', periods: [{nps:82.4,reserve:80,store:83,consult:84},{nps:81.2,reserve:79,store:82,consult:83},{nps:82.0,reserve:80,store:82,consult:84},{nps:83.1,reserve:81,store:84,consult:85},{nps:82.8,reserve:80,store:83,consult:84}] },
+        { name: 'BS', periods: [{nps:83.5,reserve:81,store:84,consult:85},{nps:82.4,reserve:80,store:83,consult:84},{nps:83.1,reserve:81,store:83,consult:85},{nps:84.2,reserve:82,store:85,consult:86},{nps:84.0,reserve:82,store:84,consult:85}] },
+        { name: '강남', periods: [{nps:85.1,reserve:83,store:86,consult:87},{nps:84.0,reserve:82,store:85,consult:86},{nps:84.8,reserve:83,store:85,consult:86},{nps:86.0,reserve:84,store:87,consult:88},{nps:85.5,reserve:84,store:86,consult:87}] },
+        { name: 'LG전자 플래그십 D5', periods: [{nps:88.6,reserve:87,store:89,consult:91},{nps:87.2,reserve:85,store:88,consult:90},{nps:88.0,reserve:86,store:88,consult:90},{nps:89.5,reserve:88,store:90,consult:92},{nps:89.8,reserve:89,store:90,consult:92}] }
+      ];
+      state.raw = [
+        { region:'강남', branch:'D5', empId:'1001', manager:'김철수', items:'냉장고', week:'10월 3주', month:'10월', score5:5, score100:100, npsType:'추천', detail:'매우 친절하게 설명해주셨습니다.' },
+        { region:'강남', branch:'D5', empId:'1001', manager:'김철수', items:'워시타워', week:'10월 4주', month:'10월', score5:4, score100:75, npsType:'중립', detail:'배송 일정 안내가 조금 아쉬웠음' },
+        { region:'강남', branch:'D5', empId:'1002', manager:'이영희', items:'TV', week:'11월 1주', month:'11월', score5:5, score100:100, npsType:'추천', detail:'혜택 비교를 꼼꼼히 해주심' },
+        { region:'강남', branch:'D5', empId:'1003', manager:'박민수', items:'에어컨', week:'11월 1주', month:'11월', score5:3, score100:50, npsType:'비추천', detail:'대기 시간이 길었습니다.' },
+        { region:'강남', branch:'D5', empId:'1002', manager:'이영희', items:'식기세척기', week:'11월 2주', month:'11월', score5:5, score100:100, npsType:'추천', detail:'만족합니다.' }
+      ];
+      state.mgr = [
+        { empId:'1001', name:'김철수', role:'판매', title:'책임', periods:[{score:91.5,ratio:'18%',total:24,s5:19,s4:4,s3:1,s2:0,s1:0}] },
+        { empId:'1002', name:'이영희', role:'판매', title:'선임', periods:[{score:94.2,ratio:'22%',total:30,s5:26,s4:3,s3:1,s2:0,s1:0}] },
+        { empId:'1003', name:'박민수', role:'판매', title:'사원', periods:[{score:82.0,ratio:'12%',total:15,s5:9,s4:4,s3:1,s2:1,s1:0}] }
+      ];
+      state.voc = [
+        { year:'2026', month:'10월', day:'15', manager:'김철수', customer:'무기명', phone:'1234', buyDate:'2026-10-10', inflowRaw:'해당', inflow:true, attrRaw:'귀속', attr:'귀속', content:'설치 일정 지연 불만', statusRaw:'완료', done:true, process:'2차' },
+        { year:'2026', month:'11월', day:'04', manager:'박민수', customer:'무기명', phone:'5678', buyDate:'2026-10-28', inflowRaw:'미해당', inflow:false, attrRaw:'미귀속', attr:'미귀속', content:'제조사 물류 파손 이슈', statusRaw:'종료', done:true, process:'1차' },
+        { year:'2026', month:'11월', day:'12', manager:'이영희', customer:'무기명', phone:'-', buyDate:'2026-11-05', inflowRaw:'해당', inflow:true, attrRaw:'진행중', attr:'진행중', content:'사은품 누락 확인 요청', statusRaw:'진행중', done:false, process:'1차' }
+      ];
+      renderAll();
+      alert('테스트용 샘플 데이터가 로드되었습니다. 각 탭을 눌러 확인해보세요!');
+    }
+  </script>
+</body>
+</html>
