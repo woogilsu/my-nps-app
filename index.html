@@ -171,15 +171,15 @@
     <section id="sec-voc" class="space-y-6 hidden">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
         <div class="flex justify-between items-center mb-2">
-          <h2 class="font-bold text-slate-800">VOC 및 클레임 데이터 입력 (등록 건수 = 클레임 자동 카운팅)</h2>
-          <span class="text-xs text-slate-500">12개 열: 년/월/일/매니저명/고객명/뒷번호/구매일자/인입기준/VOC귀속여부/내용/처리사항/프로세스</span>
+          <h2 class="font-bold text-slate-800">VOC 및 클레임 데이터 입력 (개인정보·VOC번호 자동 제외 / 핵심 요약만 표시)</h2>
+          <span class="text-xs text-slate-500">12개 열: 년/월/일/매니저명/고객명(무시)/뒷번호(무시)/구매일자/인입기준/VOC귀속여부/내용/처리사항/프로세스</span>
         </div>
-        <textarea id="input-voc" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 VOC 및 클레임 데이터를 복사해 붙여넣으세요."></textarea>
+        <textarea id="input-voc" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 VOC 및 클레임 데이터를 복사해 붙여넣으세요. (고객명/전화번호/VOC번호는 화면과 엑셀에서 자동 제외됩니다)"></textarea>
         <div class="mt-2 flex flex-wrap justify-between items-center gap-2">
           <span id="voc-count-info" class="text-xs text-slate-500">현재 등록된 클레임/VOC: 0건</span>
           <div class="flex gap-2">
             <button onclick="clearVocData()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded">VOC 비우기</button>
-            <button onclick="exportVocExcel()" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded">VOC 리포트 엑셀 생성</button>
+            <button onclick="exportVocExcel()" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded">VOC 요약 엑셀 생성</button>
             <button onclick="parseVocData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
             <button onclick="parseVocData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">누적 저장 후 분석</button>
           </div>
@@ -195,11 +195,13 @@
           <option value="귀속">귀속</option>
           <option value="미귀속">미귀속</option>
           <option value="진행중">진행중</option>
+          <option value="해당없음">해당없음(빈칸)</option>
         </select>
         <select id="filter-voc-status" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5">
           <option value="ALL">처리상태 전체</option>
           <option value="완료">완료/종료</option>
           <option value="진행중">진행중/미완료</option>
+          <option value="미기재">미기재(빈칸)</option>
         </select>
       </div>
 
@@ -216,7 +218,7 @@
       </div>
 
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 class="font-bold text-slate-800 mb-3">클레임 / VOC 상세 내역</h3>
+        <h3 class="font-bold text-slate-800 mb-3">클레임 / VOC 핵심 요약 (개인정보·상세내역 제외)</h3>
         <table class="w-full text-xs text-left border-collapse" id="table-voc-list"></table>
       </div>
     </section>
@@ -224,14 +226,14 @@
   </main>
 
   <script>
-    const STORAGE_KEY = 'd5_nps_voc_app_v1';
+    const STORAGE_KEY = 'd5_nps_voc_app_v2';
     let state = { org: [], raw: [], mgr: [], voc: [] };
     let currentOrgMetric = 0;
     const charts = {};
     const MONTHS = ['26년누적','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
     window.onload = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('d5_nps_voc_app_v1');
       if (saved) {
         try { state = JSON.parse(saved); } catch(e) {}
       }
@@ -310,6 +312,7 @@
       charts[id] = new Chart(ctx, config);
     }
 
+    // ==================== 1. 전사/담당/D5 ====================
     function parseOrgData(persist) {
       const txt = document.getElementById('input-org').value;
       if (!txt.trim()) return alert('붙여넣을 데이터를 입력해주세요.');
@@ -428,6 +431,7 @@
         </tbody>`;
     }
 
+    // ==================== 2. NPS 로우데이터 ====================
     function parseRawData(persist) {
       const txt = document.getElementById('input-raw').value;
       if (!txt.trim()) return alert('로우데이터를 입력해주세요.');
@@ -563,6 +567,7 @@
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 코멘트가 없습니다.</td></tr>';
     }
 
+    // ==================== 3. 매니저별 누적 NPS ====================
     function initMgrPeriodSelect() {
       const sel = document.getElementById('filter-mgr-period');
       sel.innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m === '26년누적' ? '26년 누적' : m + ' 누적'}</option>`).join('');
@@ -622,22 +627,41 @@
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">매니저 누적 데이터를 붙여넣어 주세요.</td></tr>';
     }
 
+    // ==================== 4. VOC & 클레임 (빈칸 분리 + 요약 + 개인정보/번호 제거) ====================
+    function summarizeVocContent(rawText) {
+      if (!rawText) return '-';
+      let s = String(rawText)
+        .replace(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g, '') // 휴대폰번호 제거
+        .replace(/\b\d{2,3}[-\s.]\d{3,4}[-\s.]\d{4}\b/g, '')   // 일반전화 제거
+        .replace(/(?:VOC|접수|주문|상담)?\s*(?:번호|NO\.?|#)?\s*[:：]?\s*[A-Za-z0-9-]*\d{6,}[A-Za-z0-9-]*/gi, '') // VOC/주문번호 제거
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!s) return '내용 요약 없음';
+      const firstLine = s.split(/(?<=[.!?])\s+|\n/)[0].trim();
+      return firstLine.length > 45 ? firstLine.slice(0, 45) + '...' : firstLine;
+    }
+
     function classifyVocAttr(val) {
       const s = String(val || '').trim();
+      if (!s || s === '-' || s === '없음') return '해당없음';
       if (s.includes('미귀속') || s.includes('비귀속') || s === 'X' || s === 'N') return '미귀속';
-      if (s.includes('진행') || s.includes('대기') || s.includes('검토')) return '진행중';
+      if (s.includes('진행') || s.includes('대기') || s.includes('검토') || s.includes('확인')) return '진행중';
       if (s.includes('귀속') || s === 'O' || s === 'Y') return '귀속';
-      return '진행중';
+      return '해당없음';
     }
+
     function isVocInflow(val) {
       const s = String(val || '').trim();
-      if (!s || s.includes('미해당') || s.includes('비해당') || s.includes('안됨') || s === 'X' || s === 'N') return false;
+      if (!s || s === '-' || s.includes('미해당') || s.includes('비해당') || s.includes('안됨') || s === 'X' || s === 'N') return false;
       return true;
     }
-    function isVocDone(val) {
+
+    function classifyVocStatus(val) {
       const s = String(val || '').trim();
-      if (s.includes('미완료') || s.includes('진행')) return false;
-      return s.includes('완료') || s.includes('종료') || s.includes('해결');
+      if (!s || s === '-') return '미기재';
+      if (s.includes('미완료') || s.includes('진행') || s.includes('대기') || s.includes('협의') || s.includes('처리중')) return '진행중';
+      if (s.includes('완료') || s.includes('종료') || s.includes('해결') || s.includes('종결')) return '완료';
+      return '미기재';
     }
 
     function parseVocData(persist) {
@@ -650,10 +674,11 @@
         const mNum = String(r[1] || '').replace(/[^0-9]/g, '');
         parsed.push({
           year: r[0] || '', month: mNum ? mNum + '월' : (r[1] || '미분류'), day: r[2] || '',
-          manager: r[3], customer: r[4] || '무기명', phone: r[5] || '-',
-          buyDate: r[6] || '-', inflowRaw: r[7] || '-', inflow: isVocInflow(r[7]),
+          manager: r[3],
+          inflowRaw: r[7] || '-', inflow: isVocInflow(r[7]),
           attrRaw: r[8] || '-', attr: classifyVocAttr(r[8]),
-          content: r[9] || '', statusRaw: r[10] || '-', done: isVocDone(r[10]),
+          summary: summarizeVocContent(r[9]),
+          statusRaw: r[10] || '-', status: classifyVocStatus(r[10]),
           process: r[11] || '-'
         });
       }
@@ -666,7 +691,7 @@
       }
       populateVocFilters();
       renderVoc();
-      alert(`${parsed.length}건의 클레임/VOC가 반영되었습니다.`);
+      alert(`${parsed.length}건의 클레임/VOC가 반영되었습니다. (개인정보·번호 자동 제외)`);
     }
 
     function clearVocData() {
@@ -691,11 +716,19 @@
       const fa = document.getElementById('filter-voc-attr').value || 'ALL';
       const fs = document.getElementById('filter-voc-status').value || 'ALL';
 
-      const data = state.voc.filter(v =>
+      // 기존 v1 데이터 호환 보정
+      const normalized = state.voc.map(v => ({
+        ...v,
+        summary: v.summary || summarizeVocContent(v.content),
+        attr: v.attr || classifyVocAttr(v.attrRaw),
+        status: v.status || classifyVocStatus(v.statusRaw)
+      }));
+
+      const data = normalized.filter(v =>
         (fm === 'ALL' || v.month === fm) &&
         (fmg === 'ALL' || v.manager === fmg) &&
         (fa === 'ALL' || v.attr === fa) &&
-        (fs === 'ALL' || (fs === '완료' ? v.done : !v.done))
+        (fs === 'ALL' || v.status === fs)
       );
 
       const total = data.length;
@@ -703,14 +736,16 @@
       const attrYes = data.filter(v => v.attr === '귀속').length;
       const attrNo = data.filter(v => v.attr === '미귀속').length;
       const attrIng = data.filter(v => v.attr === '진행중').length;
-      const doneCnt = data.filter(v => v.done).length;
+      const doneCnt = data.filter(v => v.status === '완료').length;
+      const ingStatusCnt = data.filter(v => v.status === '진행중').length;
+      const blankStatusCnt = data.filter(v => v.status === '미기재').length;
 
       document.getElementById('voc-kpis').innerHTML = [
         { t: '총 클레임 건수', v: total + '건', hi: true },
         { t: 'VOC 인입기준 해당', v: inflowCnt + '건' },
         { t: 'VOC 귀속 / 미귀속', v: `${attrYes} / ${attrNo}건` },
-        { t: 'VOC 귀속 진행중', v: attrIng + '건', warn: attrIng > 0 },
-        { t: '처리 완료 / 미완료', v: `${doneCnt} / ${total - doneCnt}건` }
+        { t: 'VOC 귀속 진행중', v: `${attrIng}건`, warn: attrIng > 0 },
+        { t: '처리 완료 / 진행 / 미기재', v: `${doneCnt} / ${ingStatusCnt} / ${blankStatusCnt}` }
       ].map(k => `
         <div class="p-4 rounded-xl border ${k.hi ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'} shadow-sm">
           <div class="text-xs text-slate-500">${k.t}</div>
@@ -723,7 +758,7 @@
         mMap[v.month].total++;
         if (v.attr === '귀속') mMap[v.month].yes++;
         else if (v.attr === '미귀속') mMap[v.month].no++;
-        else mMap[v.month].ing++;
+        else if (v.attr === '진행중') mMap[v.month].ing++;
       });
       const mLabels = Object.keys(mMap).sort((a,b) => parseInt(a)-parseInt(b));
       makeChart('chart-voc-month', {
@@ -734,7 +769,7 @@
             { label: '총 클레임', data: mLabels.map(m => mMap[m].total), backgroundColor: '#1e293b' },
             { label: 'VOC 귀속', data: mLabels.map(m => mMap[m].yes), backgroundColor: '#A50034' },
             { label: 'VOC 미귀속', data: mLabels.map(m => mMap[m].no), backgroundColor: '#94a3b8' },
-            { label: '진행중', data: mLabels.map(m => mMap[m].ing), backgroundColor: '#f59e0b' }
+            { label: '귀속 진행중', data: mLabels.map(m => mMap[m].ing), backgroundColor: '#f59e0b' }
           ]
         },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
@@ -742,57 +777,61 @@
 
       const mgMap = {};
       data.forEach(v => {
-        if (!mgMap[v.manager]) mgMap[v.manager] = { total:0, inflow:0, yes:0, no:0, ing:0, done:0 };
+        if (!mgMap[v.manager]) mgMap[v.manager] = { total:0, inflow:0, yes:0, no:0, ing:0, done:0, stIng:0, stBlank:0 };
         const m = mgMap[v.manager];
         m.total++; if (v.inflow) m.inflow++;
-        if (v.attr === '귀속') m.yes++; else if (v.attr === '미귀속') m.no++; else m.ing++;
-        if (v.done) m.done++;
+        if (v.attr === '귀속') m.yes++; else if (v.attr === '미귀속') m.no++; else if (v.attr === '진행중') m.ing++;
+        if (v.status === '완료') m.done++; else if (v.status === '진행중') m.stIng++; else m.stBlank++;
       });
       const mgArr = Object.entries(mgMap).sort((a,b) => b[1].total - a[1].total);
       document.getElementById('table-voc-mgr').innerHTML = mgArr.length ? `
-        <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총 클레임</th><th class="p-2">인입기준 해당</th><th class="p-2">VOC 귀속</th><th class="p-2">VOC 미귀속</th><th class="p-2">귀속 진행중</th><th class="p-2">처리완료</th><th class="p-2">미완료</th></tr></thead>
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총 클레임</th><th class="p-2">인입해당</th><th class="p-2">VOC 귀속</th><th class="p-2">미귀속</th><th class="p-2">귀속진행</th><th class="p-2">처리완료</th><th class="p-2">처리진행</th><th class="p-2">미기재</th></tr></thead>
         <tbody>${mgArr.map(([name, m]) => `
           <tr class="border-b hover:bg-slate-50">
             <td class="p-2 text-left font-bold">${name}</td>
             <td class="p-2 font-bold">${m.total}</td><td class="p-2">${m.inflow}</td>
             <td class="p-2 text-rose-700 font-bold">${m.yes}</td><td class="p-2">${m.no}</td><td class="p-2 text-amber-600">${m.ing}</td>
-            <td class="p-2 text-emerald-700">${m.done}</td><td class="p-2 text-slate-600">${m.total - m.done}</td>
+            <td class="p-2 text-emerald-700">${m.done}</td><td class="p-2 text-amber-600">${m.stIng}</td><td class="p-2 text-slate-400">${m.stBlank}</td>
           </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">VOC/클레임 데이터가 없습니다.</td></tr>';
 
       document.getElementById('table-voc-list').innerHTML = data.length ? `
-        <thead><tr class="bg-slate-100 border-b"><th class="p-2">접수일</th><th class="p-2">매니저</th><th class="p-2">인입기준</th><th class="p-2">VOC귀속</th><th class="p-2">내용</th><th class="p-2">처리사항</th><th class="p-2">프로세스</th></tr></thead>
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2">접수일</th><th class="p-2">매니저</th><th class="p-2">인입기준</th><th class="p-2">VOC귀속</th><th class="p-2">핵심 요약</th><th class="p-2">처리상태</th><th class="p-2">프로세스</th></tr></thead>
         <tbody>${data.map(v => `
           <tr class="border-b hover:bg-slate-50">
             <td class="p-2 whitespace-nowrap">${v.year}.${v.month}.${v.day}</td>
             <td class="p-2 whitespace-nowrap font-semibold">${v.manager}</td>
             <td class="p-2 whitespace-nowrap">${v.inflowRaw}</td>
-            <td class="p-2 whitespace-nowrap font-bold ${v.attr==='귀속'?'text-rose-700':v.attr==='진행중'?'text-amber-600':'text-slate-500'}">${v.attrRaw}</td>
-            <td class="p-2">${v.content}</td>
-            <td class="p-2 whitespace-nowrap font-semibold ${v.done?'text-emerald-700':'text-amber-600'}">${v.statusRaw}</td>
+            <td class="p-2 whitespace-nowrap font-bold ${v.attr==='귀속'?'text-rose-700':v.attr==='진행중'?'text-amber-600':'text-slate-400'}">${v.attr}</td>
+            <td class="p-2">${v.summary}</td>
+            <td class="p-2 whitespace-nowrap font-semibold ${v.status==='완료'?'text-emerald-700':v.status==='진행중'?'text-amber-600':'text-slate-400'}">${v.status}</td>
             <td class="p-2 whitespace-nowrap">${v.process}</td>
-          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 내역이 없습니다.</td></tr>';
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">요약할 내역이 없습니다.</td></tr>';
     }
 
     function exportVocExcel() {
       if (!state.voc.length) return alert('내보낼 VOC/클레임 데이터가 없습니다.');
       const wb = XLSX.utils.book_new();
       const wsList = XLSX.utils.json_to_sheet(state.voc.map(v => ({
-        년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager, 고객명: v.customer,
-        뒷번호: v.phone, 구매일자: v.buyDate, 인입기준: v.inflowRaw, VOC귀속여부: v.attrRaw,
-        내용: v.content, 처리사항: v.statusRaw, 프로세스: v.process
+        년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager,
+        인입기준: v.inflowRaw, VOC귀속여부: v.attr || classifyVocAttr(v.attrRaw),
+        핵심요약: v.summary || summarizeVocContent(v.content),
+        처리상태: v.status || classifyVocStatus(v.statusRaw),
+        프로세스: v.process
       })));
-      XLSX.utils.book_append_sheet(wb, wsList, 'VOC_클레임_상세');
+      XLSX.utils.book_append_sheet(wb, wsList, 'VOC_클레임_요약');
 
       const mgMap = {};
       state.voc.forEach(v => {
-        if (!mgMap[v.manager]) mgMap[v.manager] = { 매니저명: v.manager, 총클레임:0, 인입해당:0, VOC귀속:0, VOC미귀속:0, 귀속진행중:0, 처리완료:0, 미완료:0 };
+        const attr = v.attr || classifyVocAttr(v.attrRaw);
+        const st = v.status || classifyVocStatus(v.statusRaw);
+        if (!mgMap[v.manager]) mgMap[v.manager] = { 매니저명: v.manager, 총클레임:0, 인입해당:0, VOC귀속:0, VOC미귀속:0, 귀속진행중:0, 처리완료:0, 처리진행중:0, 미기재:0 };
         const m = mgMap[v.manager];
         m.총클레임++; if(v.inflow) m.인입해당++;
-        if(v.attr==='귀속') m.VOC귀속++; else if(v.attr==='미귀속') m.VOC미귀속++; else m.귀속진행중++;
-        if(v.done) m.처리완료++; else m.미완료++;
+        if(attr==='귀속') m.VOC귀속++; else if(attr==='미귀속') m.VOC미귀속++; else if(attr==='진행중') m.귀속진행중++;
+        if(st==='완료') m.처리완료++; else if(st==='진행중') m.처리진행중++; else m.미기재++;
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.values(mgMap)), '매니저별_집계');
-      XLSX.writeFile(wb, `D5_VOC_클레임_리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.writeFile(wb, `D5_VOC_클레임_요약리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
     function exportAllExcel() {
@@ -813,9 +852,11 @@
       }
       if (state.voc.length) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.voc.map(v => ({
-          년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager, 인입기준: v.inflowRaw,
-          VOC귀속여부: v.attrRaw, 내용: v.content, 처리사항: v.statusRaw, 프로세스: v.process
-        }))), 'VOC_클레임');
+          년: v.year, 월: v.month, 일: v.day, 매니저명: v.manager,
+          인입기준: v.inflowRaw, VOC귀속여부: v.attr || classifyVocAttr(v.attrRaw),
+          핵심요약: v.summary || summarizeVocContent(v.content),
+          처리상태: v.status || classifyVocStatus(v.statusRaw), 프로세스: v.process
+        }))), 'VOC_클레임_요약');
       }
       if (!wb.SheetNames.length) return alert('내보낼 데이터가 없습니다.');
       XLSX.writeFile(wb, `D5_NPS_VOC_통합리포트_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -848,6 +889,7 @@
       if (!confirm('저장된 모든 데이터를 초기화하시겠습니까?')) return;
       state = { org: [], raw: [], mgr: [], voc: [] };
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('d5_nps_voc_app_v1');
       renderAll();
     }
 
@@ -878,9 +920,9 @@
         { empId:'1003', name:'박민수', role:'판매', title:'사원', periods:[{score:82.0,ratio:'12%',total:15,s5:9,s4:4,s3:1,s2:1,s1:0}] }
       ];
       state.voc = [
-        { year:'2026', month:'10월', day:'15', manager:'김철수', customer:'무기명', phone:'1234', buyDate:'2026-10-10', inflowRaw:'해당', inflow:true, attrRaw:'귀속', attr:'귀속', content:'설치 일정 지연 불만', statusRaw:'완료', done:true, process:'2차' },
-        { year:'2026', month:'11월', day:'04', manager:'박민수', customer:'무기명', phone:'5678', buyDate:'2026-10-28', inflowRaw:'미해당', inflow:false, attrRaw:'미귀속', attr:'미귀속', content:'제조사 물류 파손 이슈', statusRaw:'종료', done:true, process:'1차' },
-        { year:'2026', month:'11월', day:'12', manager:'이영희', customer:'무기명', phone:'-', buyDate:'2026-11-05', inflowRaw:'해당', inflow:true, attrRaw:'진행중', attr:'진행중', content:'사은품 누락 확인 요청', statusRaw:'진행중', done:false, process:'1차' }
+        { year:'2026', month:'10월', day:'15', manager:'김철수', inflowRaw:'해당', inflow:true, attrRaw:'귀속', attr:'귀속', summary:'설치 일정 지연 불만 접수', statusRaw:'완료', status:'완료', process:'2차' },
+        { year:'2026', month:'11월', day:'04', manager:'박민수', inflowRaw:'미해당', inflow:false, attrRaw:'', attr:'해당없음', summary:'제조사 물류 파손 이슈 확인', statusRaw:'종료', status:'완료', process:'1차' },
+        { year:'2026', month:'11월', day:'12', manager:'이영희', inflowRaw:'해당', inflow:true, attrRaw:'진행중', attr:'진행중', summary:'사은품 누락 확인 요청', statusRaw:'진행중', status:'진행중', process:'1차' }
       ];
       renderAll();
       alert('테스트용 샘플 데이터가 로드되었습니다. 각 탭을 눌러 확인해보세요!');
