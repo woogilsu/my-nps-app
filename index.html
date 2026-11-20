@@ -1,10 +1,772 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>새 프로젝트</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D5 NPS & VOC 통합 분석 대시보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .lg-red { background-color: #A50034; }
+    .lg-red-text { color: #A50034; }
+    .tab-active { border-bottom: 3px solid #A50034; color: #A50034; font-weight: 700; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .print-break { page-break-before: always; }
+      .shadow, .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+    }
+  </style>
 </head>
-<body>
-  <h1>GitHub 연동 및 배포 준비 완료!</h1>
-</body>
-</html>
+<body class="min-h-screen pb-16">
+
+  <!-- 상단 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="lg-red text-white font-bold px-2.5 py-1 rounded text-sm">LG D5</span>
+        <h1 class="text-lg font-bold text-slate-900">NPS & VOC 통합 분석 앱</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs font-medium">
+        <button onclick="loadSampleData()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300">샘플 데이터 테스트</button>
+        <button onclick="exportAllExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded">전체 엑셀(.xlsx) 다운로드</button>
+        <button onclick="window.print()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded">PDF 보고서 인쇄</button>
+        <button onclick="backupJSON()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200">JSON 백업</button>
+        <label class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 cursor-pointer">
+          JSON 복원
+          <input type="file" accept=".json" onchange="restoreJSON(event)" class="hidden" />
+        </label>
+        <button onclick="resetAllData()" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded border border-red-200">전체 초기화</button>
+      </div>
+    </div>
+    <!-- 탭 네비게이션 -->
+    <div class="max-w-7xl mx-auto px-4 flex gap-6 text-sm border-t border-slate-100 overflow-x-auto">
+      <button onclick="switchTab('org')" id="tab-org" class="py-3 whitespace-nowrap tab-active">1. 전사/담당/D5 비교</button>
+      <button onclick="switchTab('raw')" id="tab-raw" class="py-3 whitespace-nowrap text-slate-500 hover:text-slate-800">2. NPS 로우데이터 분석</button>
+      <button onclick="switchTab('mgr')" id="tab-mgr" class="py-3 whitespace-nowrap text-slate-500 hover:text-slate-800">3. 매니저별 누적 NPS</button>
+      <button onclick="switchTab('voc')" id="tab-voc" class="py-3 whitespace-nowrap text-slate-500 hover:text-slate-800">4. VOC & 클레임 관리</button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 pt-6 space-y-6">
+
+    <!-- ==================== 탭 1: 전사/담당/D5 비교 ==================== -->
+    <section id="sec-org" class="space-y-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-bold text-slate-800">전사 / BS / 담당별 / D5 월별·누적 데이터 붙여넣기 (덮어쓰기)</h2>
+          <span class="text-xs text-slate-500">형식: 구분 | 26년누적(NPS/상담예약/매장경험/매니저상담) | 1월(...) ~ 12월(...)</span>
+        </div>
+        <textarea id="input-org" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 구분(전사, BS, 강남, LG전자 플래그십 D5 등) 행을 복사해 그대로 붙여넣으세요."></textarea>
+        <div class="mt-2 flex justify-end gap-2">
+          <button onclick="parseOrgData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
+          <button onclick="parseOrgData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">덮어쓰기 저장 후 분석</button>
+        </div>
+      </div>
+
+      <!-- 핵심 비교 KPI 카드 -->
+      <div id="org-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+      <!-- 차트 영역 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+          <h3 class="font-bold text-slate-800">월별 추이 비교 (전사 vs BS vs 강남 vs 플래그십 D5)</h3>
+          <div class="flex gap-1 text-xs no-print">
+            <button onclick="setOrgMetric(0)" id="org-m-0" class="px-2.5 py-1 rounded bg-rose-700 text-white font-semibold">NPS</button>
+            <button onclick="setOrgMetric(1)" id="org-m-1" class="px-2.5 py-1 rounded bg-slate-100 text-slate-700">상담예약</button>
+            <button onclick="setOrgMetric(2)" id="org-m-2" class="px-2.5 py-1 rounded bg-slate-100 text-slate-700">매장경험</button>
+            <button onclick="setOrgMetric(3)" id="org-m-3" class="px-2.5 py-1 rounded bg-slate-100 text-slate-700">매니저상담</button>
+          </div>
+        </div>
+        <div class="h-72"><canvas id="chart-org"></canvas></div>
+      </div>
+
+      <!-- 전체 표 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">조직별 월간/누적 실적표 (<span id="org-metric-label">NPS</span> 기준)</h3>
+        <table class="w-full text-xs text-right border-collapse" id="table-org"></table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 2: NPS 로우데이터 분석 ==================== -->
+    <section id="sec-raw" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-bold text-slate-800">NPS 로우데이터 입력 (5점→100점 자동 환산: 5=100, 4=75, 3=50, 2=25, 1=0)</h2>
+          <span class="text-xs text-slate-500">19개 열: 지역/지점/사번/매니저명/구매목록/주차/.../NPS점수(17열)/NPS구분/상세내용</span>
+        </div>
+        <textarea id="input-raw" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 NPS 로우데이터를 복사해 붙여넣으세요."></textarea>
+        <div class="mt-2 flex flex-wrap justify-between items-center gap-2">
+          <span id="raw-count-info" class="text-xs text-slate-500">현재 로드된 로우데이터: 0건</span>
+          <div class="flex gap-2">
+            <button onclick="clearRawData()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded">로우데이터 비우기</button>
+            <button onclick="parseRawData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
+            <button onclick="parseRawData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">누적 저장 후 분석</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 필터 -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-3 items-center text-xs no-print">
+        <span class="font-bold text-slate-700">필터:</span>
+        <select id="filter-raw-month" onchange="renderRaw()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
+        <select id="filter-raw-week" onchange="renderRaw()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
+        <select id="filter-raw-mgr" onchange="renderRaw()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
+      </div>
+
+      <!-- KPI -->
+      <div id="raw-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+      <!-- 차트 2개 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-800 mb-3">주차별 NPS 추이 (100점 환산)</h3>
+          <div class="h-64"><canvas id="chart-raw-week"></canvas></div>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-800 mb-3">월별 NPS 추이 (100점 환산)</h3>
+          <div class="h-64"><canvas id="chart-raw-month"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 매니저별 집계표 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">매니저별 NPS 분석표 (로우데이터 기준)</h3>
+        <table class="w-full text-xs text-right border-collapse" id="table-raw-mgr"></table>
+      </div>
+
+      <!-- 상세내용 리스트 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">고객 상세내용 (코멘트)</h3>
+        <table class="w-full text-xs text-left border-collapse" id="table-raw-detail"></table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 3: 매니저별 누적 NPS ==================== -->
+    <section id="sec-mgr" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-bold text-slate-800">매니저별 누적 NPS 데이터 붙여넣기 (덮어쓰기)</h2>
+          <span class="text-xs text-slate-500">형식: 사번/이름/직무/직책 | 26년누적(점수/비중/총건수/5/4/3/2/1) | 1월누적(...) ~ 12월누적(...)</span>
+        </div>
+        <textarea id="input-mgr" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 매니저별 누적 실적 표를 복사해 붙여넣으세요."></textarea>
+        <div class="mt-2 flex justify-end gap-2">
+          <button onclick="parseMgrData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
+          <button onclick="parseMgrData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">덮어쓰기 저장 후 분석</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 text-xs no-print">
+        <span class="font-bold text-slate-700">조회 기준 기간:</span>
+        <select id="filter-mgr-period" onchange="renderMgr()" class="border border-slate-300 rounded px-3 py-1.5 font-semibold"></select>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="font-bold text-slate-800 mb-3">매니저별 NPS 점수 비교</h3>
+        <div class="h-72"><canvas id="chart-mgr"></canvas></div>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">매니저별 상세 점수 및 분포표</h3>
+        <table class="w-full text-xs text-right border-collapse" id="table-mgr"></table>
+      </div>
+    </section>
+
+    <!-- ==================== 탭 4: VOC & 클레임 관리 ==================== -->
+    <section id="sec-voc" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-bold text-slate-800">VOC 및 클레임 데이터 입력 (등록 건수 = 클레임 자동 카운팅)</h2>
+          <span class="text-xs text-slate-500">12개 열: 년/월/일/매니저명/고객명/뒷번호/구매일자/인입기준/VOC귀속여부/내용/처리사항/프로세스</span>
+        </div>
+        <textarea id="input-voc" rows="4" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-rose-700" placeholder="엑셀에서 VOC 및 클레임 데이터를 복사해 붙여넣으세요."></textarea>
+        <div class="mt-2 flex flex-wrap justify-between items-center gap-2">
+          <span id="voc-count-info" class="text-xs text-slate-500">현재 등록된 클레임/VOC: 0건</span>
+          <div class="flex gap-2">
+            <button onclick="clearVocData()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded">VOC 비우기</button>
+            <button onclick="exportVocExcel()" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded">VOC 리포트 엑셀 생성</button>
+            <button onclick="parseVocData(false)" class="px-4 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded">일회성 즉시 분석</button>
+            <button onclick="parseVocData(true)" class="px-4 py-1.5 text-xs font-semibold lg-red hover:opacity-90 text-white rounded">누적 저장 후 분석</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 필터 -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-3 items-center text-xs no-print">
+        <span class="font-bold text-slate-700">필터:</span>
+        <select id="filter-voc-month" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
+        <select id="filter-voc-mgr" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5"></select>
+        <select id="filter-voc-attr" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5">
+          <option value="ALL">귀속여부 전체</option>
+          <option value="귀속">귀속</option>
+          <option value="미귀속">미귀속</option>
+          <option value="진행중">진행중</option>
+        </select>
+        <select id="filter-voc-status" onchange="renderVoc()" class="border border-slate-300 rounded px-2.5 py-1.5">
+          <option value="ALL">처리상태 전체</option>
+          <option value="완료">완료/종료</option>
+          <option value="진행중">진행중/미완료</option>
+        </select>
+      </div>
+
+      <!-- KPI -->
+      <div id="voc-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
+
+      <!-- 월별 추이 차트 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="font-bold text-slate-800 mb-3">월별 지점 전체 클레임 및 VOC 귀속 현황</h3>
+        <div class="h-64"><canvas id="chart-voc-month"></canvas></div>
+      </div>
+
+      <!-- 매니저별 집계 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">매니저별 클레임 / VOC 귀속 / 처리현황 집계</h3>
+        <table class="w-full text-xs text-right border-collapse" id="table-voc-mgr"></table>
+      </div>
+
+      <!-- 상세 목록 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-slate-800 mb-3">클레임 / VOC 상세 내역</h3>
+        <table class="w-full text-xs text-left border-collapse" id="table-voc-list"></table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ==================== 상태 관리 ====================
+    const STORAGE_KEY = 'd5_nps_voc_app_v1';
+    let state = {
+      org: [],      // 전사/담당/D5 데이터
+      raw: [],      // NPS 로우데이터
+      mgr: [],      // 매니저별 누적 데이터
+      voc: []       // VOC & 클레임 데이터
+    };
+    let currentOrgMetric = 0; // 0:NPS, 1:상담예약, 2:매장경험, 3:매니저상담
+    const charts = {};
+    const MONTHS = ['26년누적','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+    // 초기화
+    window.onload = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { state = JSON.parse(saved); } catch(e) {}
+      }
+      initMgrPeriodSelect();
+      renderAll();
+    };
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function switchTab(tab) {
+      ['org','raw','mgr','voc'].forEach(t => {
+        document.getElementById('sec-' + t).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById('tab-' + t);
+        if (t === tab) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('text-slate-500');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('text-slate-500');
+        }
+      });
+    }
+
+    // ==================== 공용 유틸 (TSV 파서 & 숫자 변환) ====================
+    function parseTSV(text) {
+      const rows = [];
+      let row = [], cell = '', inQuotes = false;
+      const str = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+      for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (ch === '"') {
+          if (inQuotes && str[i+1] === '"') { cell += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (ch === '\t' && !inQuotes) {
+          row.push(cell.trim()); cell = '';
+        } else if (ch === '\n' && !inQuotes) {
+          row.push(cell.trim());
+          if (row.some(c => c !== '')) rows.push(row);
+          row = []; cell = '';
+        } else {
+          cell += ch;
+        }
+      }
+      if (cell !== '' || row.length > 0) {
+        row.push(cell.trim());
+        if (row.some(c => c !== '')) rows.push(row);
+      }
+      return rows;
+    }
+
+    function toNum(v) {
+      if (v === undefined || v === null || v === '' || v === '-') return null;
+      const n = parseFloat(String(v).replace(/[,%점건\s]/g, ''));
+      return isNaN(n) ? null : n;
+    }
+
+    function extractMonthFromWeek(weekStr) {
+      if (!weekStr) return '미분류';
+      const s = String(weekStr);
+      const m1 = s.match(/(\d{1,2})\s*월/);
+      if (m1) return parseInt(m1[1], 10) + '월';
+      const m2 = s.match(/(\d{1,2})[-./]\d{1,2}/);
+      if (m2 && parseInt(m2[1],10) <= 12) return parseInt(m2[1], 10) + '월';
+      const m3 = s.match(/(\d{1,2})/);
+      if (m3) {
+        const w = parseInt(m3[1], 10);
+        if (w >= 1 && w <= 53) return Math.min(12, Math.max(1, Math.ceil(w / 4.33))) + '월';
+      }
+      return '미분류';
+    }
+
+    function makeChart(id, config) {
+      if (charts[id]) charts[id].destroy();
+      const ctx = document.getElementById(id).getContext('2d');
+      charts[id] = new Chart(ctx, config);
+    }
+
+    // ==================== 1. 전사/담당/D5 데이터 ====================
+    function parseOrgData(persist) {
+      const txt = document.getElementById('input-org').value;
+      if (!txt.trim()) return alert('붙여넣을 데이터를 입력해주세요.');
+      const rows = parseTSV(txt);
+      const parsed = [];
+      for (const r of rows) {
+        const name = r[0];
+        if (!name || name === '구분' || name.includes('26년누적') || name === 'NPS') continue;
+        const periods = [];
+        for (let p = 0; p < 13; p++) {
+          const base = 1 + p * 4;
+          periods.push({
+            nps: toNum(r[base]),
+            reserve: toNum(r[base+1]),
+            store: toNum(r[base+2]),
+            consult: toNum(r[base+3])
+          });
+        }
+        parsed.push({ name, periods });
+      }
+      if (!parsed.length) return alert('유효한 데이터 행을 찾지 못했습니다.');
+      state.org = parsed;
+      if (persist) saveState();
+      renderOrg();
+      alert(`${parsed.length}개 조직 데이터가 반영되었습니다.${persist ? ' (저장 완료)' : ' (일회성)'}`);
+    }
+
+    function setOrgMetric(idx) {
+      currentOrgMetric = idx;
+      const labels = ['NPS','상담예약','매장경험','매니저상담'];
+      document.getElementById('org-metric-label').textContent = labels[idx];
+      [0,1,2,3].forEach(i => {
+        const btn = document.getElementById('org-m-' + i);
+        btn.className = i === idx ? 'px-2.5 py-1 rounded bg-rose-700 text-white font-semibold' : 'px-2.5 py-1 rounded bg-slate-100 text-slate-700';
+      });
+      renderOrg();
+    }
+
+    function renderOrg() {
+      const keys = ['nps','reserve','store','consult'];
+      const key = keys[currentOrgMetric];
+      const findOrg = (kw) => state.org.find(o => o.name.replace(/\s/g,'').includes(kw));
+      const d5 = findOrg('D5') || findOrg('플래그십');
+      const gangnam = findOrg('강남');
+      const bs = state.org.find(o => o.name.trim() === 'BS') || findOrg('BS');
+      const total = findOrg('전사');
+
+      const d5Val = d5?.periods[0]?.[key];
+      const kpiItems = [
+        { title: 'LG전자 플래그십 D5 (26년누적)', obj: d5, highlight: true },
+        { title: '강남담당 (26년누적)', obj: gangnam },
+        { title: 'BS 전체 (26년누적)', obj: bs },
+        { title: '전사 (BS+백화점)', obj: total }
+      ];
+      document.getElementById('org-kpis').innerHTML = kpiItems.map(item => {
+        const val = item.obj?.periods[0]?.[key];
+        let diffHtml = '';
+        if (!item.highlight && d5Val !== null && d5Val !== undefined && val !== null && val !== undefined) {
+          const diff = (d5Val - val).toFixed(1);
+          const color = diff >= 0 ? 'text-emerald-600' : 'text-rose-600';
+          diffHtml = `<span class="text-xs font-semibold ${color}">D5 대비 ${diff >= 0 ? '+' : ''}${diff}p</span>`;
+        }
+        return `
+          <div class="p-4 rounded-xl border ${item.highlight ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'} shadow-sm">
+            <div class="text-xs text-slate-500 font-medium">${item.title}</div>
+            <div class="text-2xl font-bold mt-1 ${item.highlight ? 'lg-red-text' : 'text-slate-900'}">${val !== null && val !== undefined ? val.toFixed(1) : '-'}</div>
+            <div class="mt-1 h-4">${diffHtml}</div>
+          </div>`;
+      }).join('');
+
+      // 차트 (1월~12월)
+      const targets = [
+        { label: '플래그십 D5', obj: d5, color: '#A50034', width: 3 },
+        { label: '강남담당', obj: gangnam, color: '#2563eb', width: 2 },
+        { label: 'BS', obj: bs, color: '#059669', width: 2 },
+        { label: '전사', obj: total, color: '#64748b', width: 2, dash: [5,5] }
+      ].filter(t => t.obj);
+
+      makeChart('chart-org', {
+        type: 'line',
+        data: {
+          labels: MONTHS.slice(1),
+          datasets: targets.map(t => ({
+            label: t.label,
+            data: t.obj.periods.slice(1).map(p => p[key]),
+            borderColor: t.color,
+            backgroundColor: t.color,
+            borderWidth: t.width,
+            borderDash: t.dash || [],
+            tension: 0.25,
+            spanGaps: true
+          }))
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      // 표
+      const tbl = document.getElementById('table-org');
+      if (!state.org.length) {
+        tbl.innerHTML = '<tr><td class="py-8 text-center text-slate-400">데이터를 붙여넣거나 상단 [샘플 데이터 테스트]를 눌러주세요.</td></tr>';
+        return;
+      }
+      tbl.innerHTML = `
+        <thead>
+          <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+            <th class="p-2 text-left">구분</th>
+            ${MONTHS.map(m => `<th class="p-2">${m}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${state.org.map(o => {
+            const isD5 = o.name.includes('D5') || o.name.includes('플래그십');
+            return `<tr class="border-b border-slate-100 ${isD5 ? 'bg-rose-50 font-bold' : 'hover:bg-slate-50'}">
+              <td class="p-2 text-left whitespace-nowrap">${o.name}</td>
+              ${o.periods.map(p => `<td class="p-2">${p[key] !== null && p[key] !== undefined ? p[key].toFixed(1) : '-'}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>`;
+    }
+
+    // ==================== 2. NPS 로우데이터 ====================
+    function parseRawData(persist) {
+      const txt = document.getElementById('input-raw').value;
+      if (!txt.trim()) return alert('로우데이터를 입력해주세요.');
+      const rows = parseTSV(txt);
+      const parsed = [];
+      for (const r of rows) {
+        if (!r[3] || r[3] === '매니저명' || r[0] === '지역') continue;
+        const score5 = toNum(r[16]);
+        if (score5 === null || score5 < 1 || score5 > 5) continue;
+        const score100 = (score5 - 1) * 25;
+        const week = r[5] || '미분류';
+        const month = extractMonthFromWeek(week);
+        parsed.push({
+          region: r[0] || '', branch: r[1] || '', empId: r[2] || '',
+          manager: r[3], items: r[4] || '', week, month,
+          score5, score100, npsType: r[17] || '', detail: r[18] || ''
+        });
+      }
+      if (!parsed.length) return alert('유효한 NPS 점수(17번째 열, 1~5점)를 찾지 못했습니다.');
+      if (persist) {
+        state.raw = state.raw.concat(parsed);
+        saveState();
+      } else {
+        state.raw = parsed;
+      }
+      populateRawFilters();
+      renderRaw();
+      alert(`${parsed.length}건이 처리되었습니다.${persist ? ' (누적 저장 완료)' : ' (일회성 분석)'}`);
+    }
+
+    function clearRawData() {
+      if (!confirm('NPS 로우데이터를 모두 비우시겠습니까?')) return;
+      state.raw = [];
+      saveState();
+      populateRawFilters();
+      renderRaw();
+    }
+
+    function populateRawFilters() {
+      const months = [...new Set(state.raw.map(r => r.month))].sort((a,b) => parseInt(a)-parseInt(b));
+      const weeks = [...new Set(state.raw.map(r => r.week))];
+      const mgrs = [...new Set(state.raw.map(r => r.manager))].sort();
+      document.getElementById('filter-raw-month').innerHTML = `<option value="ALL">월 전체</option>` + months.map(m => `<option value="${m}">${m}</option>`).join('');
+      document.getElementById('filter-raw-week').innerHTML = `<option value="ALL">주차 전체</option>` + weeks.map(w => `<option value="${w}">${w}</option>`).join('');
+      document.getElementById('filter-raw-mgr').innerHTML = `<option value="ALL">매니저 전체</option>` + mgrs.map(m => `<option value="${m}">${m}</option>`).join('');
+    }
+
+    function renderRaw() {
+      document.getElementById('raw-count-info').textContent = `현재 로드된 로우데이터: ${state.raw.length}건`;
+      const fm = document.getElementById('filter-raw-month').value || 'ALL';
+      const fw = document.getElementById('filter-raw-week').value || 'ALL';
+      const fmg = document.getElementById('filter-raw-mgr').value || 'ALL';
+
+      const data = state.raw.filter(r =>
+        (fm === 'ALL' || r.month === fm) &&
+        (fw === 'ALL' || r.week === fw) &&
+        (fmg === 'ALL' || r.manager === fmg)
+      );
+
+      const total = data.length;
+      const avg100 = total ? (data.reduce((s,r) => s + r.score100, 0) / total).toFixed(1) : '-';
+      const cnt5 = data.filter(r => r.score5 === 5).length;
+      const cntLow = data.filter(r => r.score5 <= 3).length;
+
+      document.getElementById('raw-kpis').innerHTML = [
+        { t: '응답 건수', v: total + '건' },
+        { t: '평균 NPS (100점 환산)', v: avg100 === '-' ? '-' : avg100 + '점', hi: true },
+        { t: '5점 만점 (100점)', v: `${cnt5}건 (${total ? (cnt5/total*100).toFixed(1) : 0}%)` },
+        { t: '3점 이하 주의 건수', v: `${cntLow}건 (${total ? (cntLow/total*100).toFixed(1) : 0}%)`, warn: cntLow > 0 }
+      ].map(k => `
+        <div class="p-4 rounded-xl border ${k.hi ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'} shadow-sm">
+          <div class="text-xs text-slate-500">${k.t}</div>
+          <div class="text-xl font-bold mt-1 ${k.hi ? 'lg-red-text' : k.warn ? 'text-amber-600' : 'text-slate-900'}">${k.v}</div>
+        </div>`).join('');
+
+      // 주차별 집계
+      const weekMap = {};
+      data.forEach(r => {
+        if (!weekMap[r.week]) weekMap[r.week] = { sum: 0, cnt: 0 };
+        weekMap[r.week].sum += r.score100; weekMap[r.week].cnt++;
+      });
+      const weekLabels = Object.keys(weekMap);
+      makeChart('chart-raw-week', {
+        type: 'line',
+        data: {
+          labels: weekLabels,
+          datasets: [{ label: '주차별 NPS', data: weekLabels.map(w => +(weekMap[w].sum/weekMap[w].cnt).toFixed(1)), borderColor: '#A50034', backgroundColor: 'rgba(165,0,52,0.1)', fill: true, tension: 0.2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      // 월별 집계
+      const monthMap = {};
+      data.forEach(r => {
+        if (!monthMap[r.month]) monthMap[r.month] = { sum: 0, cnt: 0 };
+        monthMap[r.month].sum += r.score100; monthMap[r.month].cnt++;
+      });
+      const monthLabels = Object.keys(monthMap).sort((a,b) => parseInt(a)-parseInt(b));
+      makeChart('chart-raw-month', {
+        type: 'bar',
+        data: {
+          labels: monthLabels,
+          datasets: [{ label: '월별 NPS', data: monthLabels.map(m => +(monthMap[m].sum/monthMap[m].cnt).toFixed(1)), backgroundColor: '#1e293b', borderRadius: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      // 매니저별 집계표
+      const mgrMap = {};
+      data.forEach(r => {
+        if (!mgrMap[r.manager]) mgrMap[r.manager] = { cnt:0, sum:0, s5:0, s4:0, s3:0, s2:0, s1:0 };
+        const m = mgrMap[r.manager];
+        m.cnt++; m.sum += r.score100; m['s'+r.score5]++;
+      });
+      const mgrArr = Object.entries(mgrMap).map(([name, m]) => ({ name, ...m, avg: m.sum/m.cnt })).sort((a,b) => b.avg - a.avg);
+      document.getElementById('table-raw-mgr').innerHTML = mgrArr.length ? `
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">매니저명</th><th class="p-2">총건수</th><th class="p-2">환산 NPS</th><th class="p-2">5점(100)</th><th class="p-2">4점(75)</th><th class="p-2">3점(50)</th><th class="p-2">2점(25)</th><th class="p-2">1점(0)</th></tr></thead>
+        <tbody>${mgrArr.map(m => `
+          <tr class="border-b hover:bg-slate-50">
+            <td class="p-2 text-left font-semibold">${m.name}</td>
+            <td class="p-2">${m.cnt}</td>
+            <td class="p-2 font-bold lg-red-text">${m.avg.toFixed(1)}</td>
+            <td class="p-2">${m.s5}</td><td class="p-2">${m.s4}</td><td class="p-2">${m.s3}</td><td class="p-2">${m.s2}</td><td class="p-2">${m.s1}</td>
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">표시할 데이터가 없습니다.</td></tr>';
+
+      // 상세내용 표
+      const comments = data.filter(r => r.detail || r.score5 <= 3);
+      document.getElementById('table-raw-detail').innerHTML = comments.length ? `
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2">주차</th><th class="p-2">매니저</th><th class="p-2">점수(환산)</th><th class="p-2">구매목록</th><th class="p-2">상세내용</th></tr></thead>
+        <tbody>${comments.map(c => `
+          <tr class="border-b ${c.score5 <= 3 ? 'bg-amber-50' : ''}">
+            <td class="p-2 whitespace-nowrap">${c.week}</td>
+            <td class="p-2 whitespace-nowrap font-semibold">${c.manager}</td>
+            <td class="p-2 whitespace-nowrap font-bold ${c.score5 <= 3 ? 'text-rose-600' : 'text-emerald-700'}">${c.score5}점 (${c.score100})</td>
+            <td class="p-2">${c.items}</td>
+            <td class="p-2">${c.detail || '-'}</td>
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">상세 코멘트가 없습니다.</td></tr>';
+    }
+
+    // ==================== 3. 매니저별 누적 NPS ====================
+    function initMgrPeriodSelect() {
+      const sel = document.getElementById('filter-mgr-period');
+      sel.innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m === '26년누적' ? '26년 누적' : m + ' 누적'}</option>`).join('');
+    }
+
+    function parseMgrData(persist) {
+      const txt = document.getElementById('input-mgr').value;
+      if (!txt.trim()) return alert('매니저별 누적 데이터를 입력해주세요.');
+      const rows = parseTSV(txt);
+      const parsed = [];
+      for (const r of rows) {
+        if (!r[1] || r[0] === '사번' || r[1] === '이름') continue;
+        const periods = [];
+        for (let p = 0; p < 13; p++) {
+          const b = 4 + p * 8;
+          periods.push({
+            score: toNum(r[b]), ratio: r[b+1] || '', total: toNum(r[b+2]),
+            s5: toNum(r[b+3]), s4: toNum(r[b+4]), s3: toNum(r[b+5]), s2: toNum(r[b+6]), s1: toNum(r[b+7])
+          });
+        }
+        parsed.push({ empId: r[0], name: r[1], role: r[2] || '', title: r[3] || '', periods });
+      }
+      if (!parsed.length) return alert('유효한 매니저 누적 데이터를 찾지 못했습니다.');
+      state.mgr = parsed;
+      if (persist) saveState();
+      renderMgr();
+      alert(`${parsed.length}명의 매니저 누적 데이터가 반영되었습니다.`);
+    }
+
+    function renderMgr() {
+      const pIdx = parseInt(document.getElementById('filter-mgr-period').value || '0', 10);
+      const list = state.mgr.map(m => ({ ...m, cur: m.periods[pIdx] || {} }))
+        .filter(m => m.cur.score !== null && m.cur.score !== undefined)
+        .sort((a,b) => b.cur.score - a.cur.score);
+
+      makeChart('chart-mgr', {
+        type: 'bar',
+        data: {
+          labels: list.map(m => m.name),
+          datasets: [{ label: '누적 NPS 점수', data: list.map(m => m.cur.score), backgroundColor: '#A50034', borderRadius: 5 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      const tbl = document.getElementById('table-mgr');
+      tbl.innerHTML = list.length ? `
+        <thead><tr class="bg-slate-100 border-b"><th class="p-2 text-left">사번</th><th class="p-2 text-left">이름</th><th class="p-2 text-left">직무/직책</th><th class="p-2">점수</th><th class="p-2">비중</th><th class="p-2">총건수</th><th class="p-2">5점</th><th class="p-2">4점</th><th class="p-2">3점</th><th class="p-2">2점</th><th class="p-2">1점</th></tr></thead>
+        <tbody>${list.map(m => `
+          <tr class="border-b hover:bg-slate-50">
+            <td class="p-2 text-left text-slate-500">${m.empId}</td>
+            <td class="p-2 text-left font-bold">${m.name}</td>
+            <td class="p-2 text-left">${m.role} ${m.title}</td>
+            <td class="p-2 font-bold lg-red-text">${m.cur.score.toFixed(1)}</td>
+            <td class="p-2">${m.cur.ratio || '-'}</td>
+            <td class="p-2">${m.cur.total ?? '-'}</td>
+            <td class="p-2">${m.cur.s5 ?? 0}</td><td class="p-2">${m.cur.s4 ?? 0}</td><td class="p-2">${m.cur.s3 ?? 0}</td><td class="p-2">${m.cur.s2 ?? 0}</td><td class="p-2">${m.cur.s1 ?? 0}</td>
+          </tr>`).join('')}</tbody>` : '<tr><td class="py-6 text-center text-slate-400">매니저 누적 데이터를 붙여넣어 주세요.</td></tr>';
+    }
+
+    // ==================== 4. VOC & 클레임 관리 ====================
+    function classifyVocAttr(val) {
+      const s = String(val || '').trim();
+      if (s.includes('미귀속') || s.includes('비귀속') || s === 'X' || s === 'N') return '미귀속';
+      if (s.includes('진행') || s.includes('대기') || s.includes('검토')) return '진행중';
+      if (s.includes('귀속') || s === 'O' || s === 'Y') return '귀속';
+      return '진행중';
+    }
+    function isVocInflow(val) {
+      const s = String(val || '').trim();
+      if (!s || s.includes('미해당') || s.includes('비해당') || s.includes('안됨') || s === 'X' || s === 'N') return false;
+      return true;
+    }
+    function isVocDone(val) {
+      const s = String(val || '').trim();
+      if (s.includes('미완료') || s.includes('진행')) return false;
+      return s.includes('완료') || s.includes('종료') || s.includes('해결');
+    }
+
+    function parseVocData(persist) {
+      const txt = document.getElementById('input-voc').value;
+      if (!txt.trim()) return alert('VOC 및 클레임 데이터를 입력해주세요.');
+      const rows = parseTSV(txt);
+      const parsed = [];
+      for (const r of rows) {
+        if (!r[3] || r[0] === '년' || r[3] === '매니저명') continue;
+        const mNum = String(r[1] || '').replace(/[^0-9]/g, '');
+        parsed.push({
+          year: r[0] || '', month: mNum ? mNum + '월' : (r[1] || '미분류'), day: r[2] || '',
+          manager: r[3], customer: r[4] || '무기명', phone: r[5] || '-',
+          buyDate: r[6] || '-', inflowRaw: r[7] || '-', inflow: isVocInflow(r[7]),
+          attrRaw: r[8] || '-', attr: classifyVocAttr(r[8]),
+          content: r[9] || '', statusRaw: r[10] || '-', done: isVocDone(r[10]),
+          process: r[11] || '-'
+        });
+      }
+      if (!parsed.length) return alert('유효한 VOC/클레임 행을 찾지 못했습니다.');
+      if (persist) {
+        state.voc = state.voc.concat(parsed);
+        saveState();
+      } else {
+        state.voc = parsed;
+      }
+      populateVocFilters();
+      renderVoc();
+      alert(`${parsed.length}건의 클레임/VOC가 반영되었습니다.`);
+    }
+
+    function clearVocData() {
+      if (!confirm('VOC 및 클레임 데이터를 모두 비우시겠습니까?')) return;
+      state.voc = [];
+      saveState();
+      populateVocFilters();
+      renderVoc();
+    }
+
+    function populateVocFilters() {
+      const months = [...new Set(state.voc.map(v => v.month))].sort((a,b) => parseInt(a)-parseInt(b));
+      const mgrs = [...new Set(state.voc.map(v => v.manager))].sort();
+      document.getElementById('filter-voc-month').innerHTML = `<option value="ALL">월 전체</option>` + months.map(m => `<option value="${m}">${m}</option>`).join('');
+      document.getElementById('filter-voc-mgr').innerHTML = `<option value="ALL">매니저 전체</option>` + mgrs.map(m => `<option value="${m}">${m}</option>`).join('');
+    }
+
+    function renderVoc() {
+      document.getElementById('voc-count-info').textContent = `현재 등록된 클레임/VOC: ${state.voc.length}건`;
+      const fm = document.getElementById('filter-voc-month').value || 'ALL';
+      const fmg = document.getElementById('filter-voc-mgr').value || 'ALL';
+      const fa = document.getElementById('filter-voc-attr').value || 'ALL';
+      const fs = document.getElementById('filter-voc-status').value || 'ALL';
+
+      const data = state.voc.filter(v =>
+        (fm === 'ALL' || v.month === fm) &&
+        (fmg === 'ALL' || v.manager === fmg) &&
+        (fa === 'ALL' || v.attr === fa) &&
+        (fs === 'ALL' || (fs === '완료' ? v.done : !v.done))
+      );
+
+      const total = data.length;
+      const inflowCnt = data.filter(v => v.inflow).length;
+      const attrYes = data.filter(v => v.attr === '귀속').length;
+      const attrNo = data.filter(v => v.attr === '미귀속').length;
+      const attrIng = data.filter(v => v.attr === '진행중').length;
+      const doneCnt = data.filter(v => v.done).length;
+
+      document.getElementById('voc-kpis').innerHTML = [
+        { t: '총 클레임 건수', v: total + '건', hi: true },
+        { t: 'VOC 인입기준 해당', v: inflowCnt + '건' },
+        { t: 'VOC 귀속 / 미귀속', v: `${attrYes} / ${attrNo}건` },
+        { t: 'VOC 귀속 진행중', v: attrIng + '건', warn: attrIng > 0 },
+        { t: '처리 완료 / 미완료', v: `${doneCnt} / ${total - doneCnt}건` }
+      ].map(k => `
+        <div class="p-4 rounded-xl border ${k.hi ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'} shadow-sm">
+          <div class="text-xs text-slate-500">${k.t}</div>
+          <div class="text-xl font-bold mt-1 ${k.hi ? 'lg-red-text' : k.warn ? 'text-amber-600' : 'text-slate-900'}">${k.v}</div>
+        </div>`).join('');
+
+      // 월별 차트
+      const mMap = {};
+      data.forEach(v => {
+        if (!mMap[v.month]) mMap[v.month] = { total:0, yes:0, no:0, ing:0 };
+        mMap[v.month].total++;
+        if (v.attr === '귀속') mMap[v.month].yes++;
+        else if (v.attr === '미귀속') mMap[v.month].no++;
+        else mMap[v.month].ing++;
+      });
+      const mLabels = Object.keys(mMap).sort((a,b) => parseInt(a)-parseInt(b));
+      makeChart('chart-voc-month', {
+        type: 'bar',
+        data: {
+          labels: mLabels,
+          datasets: [
+            { label: '총 클레임', data: mLabels.map(m => mMap[m].total), backgroundColor: '#1e293b' },
+            { label: 'VOC 귀속', data: mLabels.map(m => mMap[m].yes), backgroundColor: '#A50034' },
+            { label: 'VOC 미귀속', data: mLabels.map(m => mMap[m].no), backgroundColor: '#94a3b8' },
+            { label: '진행중', data: mLabels.map(m => mMap[m].ing), backgroundColor: '#f59e0b' }
+          ]
+        },
+        options
